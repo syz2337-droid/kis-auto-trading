@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>무한매수법 4.0</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ===================== DESIGN TOKENS ===================== */
+    :root {
+      --bg:      #0a0813; --bg2: #14111e; --bg3: #1c1828; --bg4: #262236;
+      --border:  #2a2540;
+      --t1: #f0eef5; --t2: #b8b3c4; --t3: #7d7790; --t4: #5a5670;
+      --acc: #8b7cf6; --acc-s: #a78bfa;
+      --ok: #34d399; --err: #f87171; --warn: #fbbf24; --info: #60a5fa; --rev: #fb923c;
+      --topbar-bg: rgba(10,8,19,0.88);
+      --chart-line: #34d399; --chart-fill: rgba(52,211,153,0.18);
+      --font: "Pretendard", -apple-system, system-ui, sans-serif;
+      --mono: "SF Mono", ui-monospace, "Cascadia Mono", monospace;
+    }
+    [data-theme="light"] {
+      --bg: #f0eef8; --bg2: #ffffff; --bg3: #e8e5f4; --bg4: #ddd9ee;
+      --border: #ccc8e0;
+      --t1: #1a1630; --t2: #46406a; --t3: #7a7494; --t4: #aaa4be;
+      --acc: #6b48e8; --acc-s: #7c5cf6;
+      --ok: #15803d; --err: #dc2626; --warn: #b45309; --info: #1d4ed8; --rev: #c2410c;
+      --topbar-bg: rgba(240,238,248,0.93);
+      --chart-line: #15803d; --chart-fill: rgba(21,128,61,0.12);
+    }
+    [data-theme="midnight"] {
+      --bg: #060c18; --bg2: #0c1628; --bg3: #111e38; --bg4: #162448;
+      --border: #1c2c50;
+      --t1: #e2ecff; --t2: #9ab0d8; --t3: #5878b0; --t4: #3c5485;
+      --acc: #60a5fa; --acc-s: #93c5fd;
+      --ok: #4ade80; --err: #f87171; --warn: #fbbf24; --info: #38bdf8; --rev: #fb923c;
+      --topbar-bg: rgba(6,12,24,0.90);
+      --chart-line: #60a5fa; --chart-fill: rgba(96,165,250,0.15);
+    }
+
+    /* ===================== RESET / BASE ===================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--t1); padding-bottom: 5rem; }
+    .max-w { max-width: 28rem; margin: 0 auto; }
+    a { text-decoration: none; color: inherit; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; }
+    input, select { font-family: inherit; }
+
+    /* ===================== TOPBAR ===================== */
+    .topbar {
+      position: sticky; top: 0; z-index: 20;
+      background: var(--topbar-bg); backdrop-filter: blur(20px);
+      border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+      padding: 0.625rem 1rem 0;
+    }
+    .topbar-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+    .topbar-row h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.02em; }
+    .topbar-right { display: flex; align-items: center; gap: 0.5rem; }
+    .theme-btn {
+      font-size: 1rem; width: 28px; height: 28px; border-radius: 0.5rem;
+      background: var(--bg3); color: var(--t2); display: flex; align-items: center; justify-content: center;
+      border: 1px solid var(--border); transition: background 0.15s;
+    }
+    .theme-btn:hover { background: var(--bg4); }
+    .badge-mock {
+      font-size: 0.6rem; padding: 0.15rem 0.5rem; border-radius: 999px; font-weight: 700;
+      background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok);
+    }
+    .add-link { font-size: 0.72rem; color: var(--t3); padding: 0.25rem 0.5rem; border-radius: 0.375rem; border: 1px solid var(--border); }
+    .add-link:hover { color: var(--t1); background: var(--bg3); }
+
+    /* ===================== SESSION TABS ===================== */
+    .session-tabs {
+      display: flex; overflow-x: auto; gap: 0.25rem;
+      scrollbar-width: none; padding-bottom: 0;
+    }
+    .session-tabs::-webkit-scrollbar { display: none; }
+    .session-tab {
+      flex-shrink: 0; padding: 0.45rem 0.9rem;
+      font-size: 0.78rem; font-weight: 600; border-radius: 0.5rem 0.5rem 0 0;
+      color: var(--t3); background: transparent; border: 1px solid transparent; border-bottom: none;
+      transition: all 0.15s;
+    }
+    .session-tab.active {
+      color: var(--t1); background: var(--bg2); border-color: var(--border);
+    }
+    .session-tab:hover:not(.active) { color: var(--t2); }
+
+    /* ===================== SESSION PANEL ===================== */
+    .session-panel { display: none; padding: 0 1rem; }
+    .session-panel.active { display: block; }
+
+    .session-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 0.75rem 0 0.5rem;
+    }
+    .session-meta { font-size: 0.78rem; color: var(--t2); font-weight: 500; margin-bottom: 0.3rem; }
+    .session-badges { display: flex; gap: 0.375rem; }
+    .badge-sm {
+      font-size: 0.6rem; padding: 0.12rem 0.45rem; border-radius: 999px; font-weight: 700;
+    }
+    .badge-sm.orange { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+    .badge-sm.green  { background: color-mix(in srgb, var(--ok)   15%, transparent); color: var(--ok);   }
+    .kebab-btn {
+      background: var(--bg3); border: 1px solid var(--border); color: var(--t3);
+      width: 28px; height: 28px; border-radius: 0.5rem;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .kebab-btn:hover { color: var(--t1); background: var(--bg4); }
+
+    /* ===================== SETTINGS PANEL ===================== */
+    .settings-panel {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 1rem;
+      padding: 1rem; margin-bottom: 0.75rem; display: none;
+    }
+    .settings-panel.open { display: block; }
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .settings-field label { display: block; font-size: 0.625rem; color: var(--t3); margin-bottom: 0.25rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+    .settings-field input, .settings-field select {
+      width: 100%; font-family: var(--mono); font-size: 0.82rem; font-weight: 600;
+      background: var(--bg3); border: 1px solid var(--border); color: var(--t1);
+      border-radius: 0.5rem; padding: 0.45rem 0.6rem; outline: none;
+    }
+    .settings-field input:focus, .settings-field select:focus { border-color: var(--acc); }
+    .settings-checkbox { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--t2); margin-bottom: 0.75rem; }
+    .settings-actions { display: flex; gap: 0.5rem; }
+    .btn-save   { flex: 1; background: var(--acc-s); color: #fff; border-radius: 0.5rem; padding: 0.55rem; font-weight: 700; font-size: 0.78rem; }
+    .btn-reset  { background: var(--bg3); color: var(--warn); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.55rem 0.7rem; font-weight: 700; font-size: 0.78rem; }
+    .btn-delete { background: var(--bg3); color: var(--err);  border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.55rem 0.7rem; font-weight: 700; font-size: 0.78rem; }
+
+    /* ===================== INNER TABS ===================== */
+    .inner-tabs {
+      display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1rem;
+    }
+    .inner-tab {
+      padding: 0.55rem 1rem; font-size: 0.875rem; font-weight: 600; color: var(--t3);
+      border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s;
+    }
+    .inner-tab.active { color: var(--acc-s); border-bottom-color: var(--acc-s); }
+
+    /* ===================== CARDS ===================== */
+    .card {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem;
+      padding: 1.125rem; margin-bottom: 0.625rem;
+    }
+    .card-sm { border-radius: 0.875rem; padding: 0.875rem; }
+    .card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.875rem; }
+    .section-title { font-size: 0.875rem; font-weight: 600; color: var(--t1); }
+
+    /* T-VALUE card */
+    .t-card {
+      background: radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--acc) 14%, transparent), transparent 60%), var(--bg2);
+      border: 1px solid var(--border); border-radius: 1.5rem; padding: 1.25rem; margin-bottom: 0.625rem;
+    }
+    .t-card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem; }
+    .overline { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--t4); font-weight: 600; }
+    .t-big { font-family: var(--mono); font-size: 2.75rem; font-weight: 700; line-height: 1; letter-spacing: -0.04em; }
+    .t-big .frac { font-size: 1.4rem; color: var(--t4); font-weight: 500; }
+    .phase-chip {
+      letter-spacing: 0.02em; border: 1px solid; border-radius: 999px;
+      padding: 0.35rem 0.7rem; font-size: 0.68rem; font-weight: 700; white-space: nowrap;
+    }
+    .phase-chip.first   { color: var(--info); background: color-mix(in srgb, var(--info) 12%, transparent); border-color: color-mix(in srgb, var(--info) 30%, transparent); }
+    .phase-chip.second  { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+    .phase-chip.reverse { color: var(--rev);  background: color-mix(in srgb, var(--rev)  12%, transparent); border-color: color-mix(in srgb, var(--rev)  30%, transparent); }
+    .t-progress { background: var(--bg4); border-radius: 999px; height: 5px; overflow: hidden; margin-top: 1rem; }
+    .t-fill { background: linear-gradient(90deg, var(--info), var(--acc), var(--warn)); border-radius: 999px; height: 100%; transition: width 0.4s; }
+    .t-labels { display: flex; justify-content: space-between; font-size: 0.6rem; color: var(--t4); margin-top: 0.4rem; font-family: var(--mono); }
+    .first-buy-btn {
+      background: var(--acc); color: #fff; border-radius: 0.5rem;
+      padding: 0.45rem 0.875rem; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    }
+
+    /* STAT GRIDS */
+    .stat-grid { display: grid; gap: 0.4rem; margin-bottom: 0.4rem; }
+    .stat-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .stat-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .stat { background: var(--bg2); border: 1px solid var(--border); border-radius: 0.875rem; padding: 0.7rem 0.75rem; min-width: 0; }
+    .stat-label { color: var(--t3); font-size: 0.65rem; font-weight: 500; margin-bottom: 0.3rem; }
+    .stat-value { font-family: var(--mono); font-size: 0.95rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+    .stat-value.ok   { color: var(--ok);   }
+    .stat-value.warn { color: var(--warn);  }
+    .stat-value.acc  { color: var(--acc-s); }
+    .stat-value.err  { color: var(--err);   }
+    .stat-sub { font-family: var(--mono); font-size: 0.6rem; color: var(--t4); margin-top: 0.2rem; }
+
+    /* FX LINE */
+    .fx-line { text-align: right; font-size: 0.65rem; color: var(--t4); font-family: var(--mono); margin-bottom: 0.75rem; }
+
+    /* ===================== 최근 종가 GRID ===================== */
+    .closes-section { margin-bottom: 0.625rem; }
+    .closes-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .closes-head .title { font-size: 0.8rem; font-weight: 600; color: var(--t1); }
+    .closes-head .avg5 { font-size: 0.7rem; font-family: var(--mono); color: var(--acc-s); font-weight: 600; }
+    .closes-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.3rem; }
+    .close-cell {
+      background: var(--bg2); border: 1px solid var(--border); border-radius: 0.625rem;
+      padding: 0.45rem 0.3rem; text-align: center;
+    }
+    .close-cell.pos { border-color: color-mix(in srgb, var(--ok)  20%, var(--border)); }
+    .close-cell.neg { border-color: color-mix(in srgb, var(--err) 20%, var(--border)); }
+    .c-date  { font-size: 0.55rem; color: var(--t4); margin-bottom: 0.2rem; }
+    .c-price { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; }
+    .c-chg   { font-size: 0.6rem; font-weight: 700; margin-top: 0.15rem; }
+    .close-cell.pos .c-chg { color: var(--ok);  }
+    .close-cell.neg .c-chg { color: var(--err); }
+    .c-high  { font-family: var(--mono); font-size: 0.55rem; color: var(--t4); margin-top: 0.1rem; }
+
+    /* ===================== 거래일 변동 ===================== */
+    .ohlc-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
+    .ohlc-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.875rem; }
+    .ohlc-title { font-size: 0.78rem; font-weight: 600; color: var(--t1); }
+    .ohlc-hl { font-size: 0.65rem; color: var(--t3); font-family: var(--mono); }
+    .ohlc-cols { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 0.5rem; align-items: end; margin-bottom: 0.5rem; }
+    .ohlc-col { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+    .ohlc-col-label { font-size: 0.6rem; color: var(--t4); font-weight: 600; letter-spacing: 0.04em; }
+    .ohlc-price-top, .ohlc-price-bot { font-family: var(--mono); font-size: 0.65rem; color: var(--t3); }
+    .candle-wrap { position: relative; width: 100%; height: 100px; }
+    .candle-wick {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      width: 2px; border-radius: 1px;
+    }
+    .candle-body {
+      position: absolute; left: 50%; transform: translateX(-50%);
+      width: 18px; border-radius: 3px;
+    }
+    .bar-wrap { position: relative; width: 100%; height: 100px; }
+    .bar-line { position: absolute; left: 50%; transform: translateX(-50%); width: 8px; border-radius: 999px; opacity: 0.7; }
+    .ohlc-footer { display: flex; justify-content: space-between; font-size: 0.65rem; color: var(--t3); font-family: var(--mono); padding-top: 0.375rem; border-top: 1px solid var(--border); }
+    .ohlc-na { text-align: center; padding: 2rem 0; color: var(--t4); font-size: 0.75rem; }
+
+    /* ===================== 주문 SECTION ===================== */
+    .orders-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
+    .orders-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .order-group-head { display: flex; align-items: center; gap: 0.35rem; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; margin-bottom: 0.4rem; }
+    .order-dot { width: 6px; height: 6px; border-radius: 99px; }
+    .sell-head { color: var(--err); }  .sell-dot { background: var(--err); }
+    .buy-head  { color: var(--ok);  }  .buy-dot  { background: var(--ok);  }
+    .order-row { display: flex; justify-content: space-between; align-items: center; border-radius: 0.5rem; padding: 0.55rem 0.75rem; margin-bottom: 0.2rem; }
+    .order-row.sell { background: color-mix(in srgb, var(--err) 7%, transparent); }
+    .order-row.buy  { background: color-mix(in srgb, var(--ok)  7%, transparent); }
+    .order-label { font-size: 0.75rem; color: var(--t2); }
+    .order-tag { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.04em; border-radius: 0.25rem; padding: 0.1rem 0.35rem; margin-left: 0.3rem; }
+    .order-tag.LOC   { color: var(--info); background: color-mix(in srgb, var(--info) 16%, transparent); }
+    .order-tag.MOC   { color: var(--rev);  background: color-mix(in srgb, var(--rev)  18%, transparent); }
+    .order-tag.\지정가 { color: var(--acc-s); background: color-mix(in srgb, var(--acc) 16%, transparent); }
+    .order-price { font-family: var(--mono); font-size: 0.82rem; font-weight: 600; }
+    .order-row.sell .order-price { color: var(--err); }
+    .order-row.buy  .order-price { color: var(--ok);  }
+    .order-qty { color: var(--t3); font-size: 0.7rem; margin-left: 0.4rem; }
+    .empty-note { color: var(--t4); font-size: 0.75rem; padding: 0.4rem 0; }
+    .orders-gap { margin-top: 0.625rem; }
+
+    /* ===================== 히스토리 ===================== */
+    .history-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
+    .history-row { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0.625rem; background: var(--bg3); border-radius: 0.5rem; margin-bottom: 0.25rem; font-size: 0.72rem; }
+    .h-date { color: var(--t3); margin-right: 0.5rem; }
+    .h-summary { font-family: var(--mono); color: var(--t1); }
+
+    /* ===================== 분석 탭 ===================== */
+    .chart-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
+    .chart-period-btns { display: flex; gap: 0.25rem; }
+    .period-btn { font-size: 0.68rem; font-weight: 600; padding: 0.25rem 0.6rem; border-radius: 0.375rem; color: var(--t3); background: var(--bg3); border: 1px solid var(--border); transition: all 0.15s; }
+    .period-btn.active { color: var(--acc-s); background: color-mix(in srgb, var(--acc) 12%, transparent); border-color: color-mix(in srgb, var(--acc) 30%, transparent); }
+    .chart-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem; margin: 0.75rem 0; }
+    .chart-stat { background: var(--bg3); border-radius: 0.625rem; padding: 0.5rem 0.625rem; }
+    .chart-stat-label { font-size: 0.6rem; color: var(--t3); margin-bottom: 0.2rem; }
+    .chart-stat-value { font-family: var(--mono); font-size: 0.85rem; font-weight: 700; }
+    .chart-canvas-wrap { height: 160px; margin-bottom: 0.25rem; }
+
+    /* 공포&탐욕 */
+    .fg-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
+    .fg-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .fg-source { font-size: 0.65rem; color: var(--t4); }
+    .fg-value-row { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .fg-num { font-family: var(--mono); font-size: 2.25rem; font-weight: 700; line-height: 1; }
+    .fg-label { font-size: 0.85rem; font-weight: 600; }
+    .fg-bar-wrap { position: relative; height: 10px; border-radius: 999px; overflow: visible; background: linear-gradient(to right, #ef4444, #f97316, #eab308, #84cc16, #22c55e); margin-bottom: 0.375rem; }
+    .fg-needle { position: absolute; top: -4px; width: 4px; height: 18px; background: var(--t1); border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 6px rgba(0,0,0,0.5); transition: left 0.5s; }
+    .fg-bar-labels { display: flex; justify-content: space-between; font-size: 0.55rem; color: var(--t4); margin-bottom: 0.75rem; }
+    .fg-chart-wrap { height: 80px; }
+
+    /* 새 사이클 시작 */
+    .new-cycle-section { background: color-mix(in srgb, var(--acc) 8%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--acc) 25%, var(--border)); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
+    .new-cycle-head { display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; font-weight: 700; margin-bottom: 0.75rem; }
+    .star-icon { color: var(--acc-s); }
+    .new-cycle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-bottom: 0.625rem; }
+    .nc-item-label { font-size: 0.62rem; color: var(--t3); margin-bottom: 0.2rem; }
+    .nc-item-value { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; color: var(--acc-s); }
+    .nc-formula { font-size: 0.72rem; color: var(--t2); line-height: 1.6; }
+    .nc-formula strong { color: var(--acc-s); }
+
+    /* ===================== FAB ===================== */
+    .fab-wrap { position: fixed; bottom: calc(1.25rem + env(safe-area-inset-bottom)); left: 0; right: 0; display: flex; justify-content: center; z-index: 30; }
+    .fab {
+      background: linear-gradient(180deg, var(--acc-s), var(--acc));
+      color: #fff; border: none; border-radius: 999px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.8rem 1.5rem; font-size: 0.9rem; font-weight: 700; letter-spacing: -0.01em;
+      box-shadow: 0 8px 24px color-mix(in srgb, var(--acc) 45%, transparent), 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .fab:active { transform: scale(0.96); }
+  </style>
+</head>
+<body>
+<div class="max-w">
+
+  <!-- ========== TOPBAR ========== -->
+  <div class="topbar">
+    <div class="topbar-row">
+      <h1>무한매수법 4.0</h1>
+      <div class="topbar-right">
+        <button class="theme-btn" onclick="cycleTheme()" title="테마 변경">◐</button>
+        <span class="badge-mock">모의투자</span>
+        <a href="/setup" class="add-link">+ 추가</a>
+      </div>
+    </div>
+    <div class="session-tabs" id="session-tabs">
+      {% for row in rows %}
+      <button class="session-tab" data-session="{{ row.session_id }}"
+              onclick="switchSession('{{ row.session_id }}')">{{ row.label }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ========== SESSION PANELS ========== -->
+  {% for row in rows %}
+  <div class="session-panel" id="panel-{{ row.session_id }}">
+
+    <!-- 세션 헤더 -->
+    <div class="session-header">
+      <div>
+        <div class="session-meta">{{ row.ticker }} · {{ row.division }}분할 · ${{ "{:,.0f}".format(row.principal) }}</div>
+        <div class="session-badges">
+          {% if row.sell_orders or row.buy_orders %}
+            <span class="badge-sm green">주문 완료</span>
+          {% else %}
+            <span class="badge-sm orange">주문 전</span>
+          {% endif %}
+          {% if row.history %}
+            <span class="badge-sm green">기록 있음</span>
+          {% else %}
+            <span class="badge-sm orange">기록 전</span>
+          {% endif %}
+        </div>
+      </div>
+      <button class="kebab-btn" onclick="toggleSettings('{{ row.session_id }}')">⋮</button>
+    </div>
+
+    <!-- 설정 패널 -->
+    <div id="settings-{{ row.session_id }}" class="settings-panel">
+      <form method="post" action="/session/{{ row.session_id }}/update">
+        <div class="settings-grid">
+          <div class="settings-field">
+            <label>탭 이름</label>
+            <input type="text" name="label" value="{{ row.label }}" placeholder="{{ row.session_id }}" />
+          </div>
+          <div class="settings-field">
+            <label>원금 ($)</label>
+            <input type="number" name="principal" value="{{ row.principal }}" step="100" />
+          </div>
+          <div class="settings-field">
+            <label>목표 수익률 (%)</label>
+            <input type="number" name="target_profit_pct" value="{{ row.target_profit_pct }}" step="0.1" />
+          </div>
+          <div class="settings-field">
+            <label>큰수 %</label>
+            <input type="number" name="big_number_pct" value="{{ row.first_buy_premium_pct }}" step="0.1" />
+          </div>
+          <div class="settings-field">
+            <label>하방 LOC 줄 수</label>
+            <input type="number" name="loc_lines" value="{{ row.loc_lines }}" step="1" min="1" max="30" />
+          </div>
+          <div class="settings-field">
+            <label>LOC 주당 수량</label>
+            <input type="number" name="loc_qty_per_line" value="{{ row.loc_qty_per_line }}" step="1" min="1" max="20" />
+          </div>
+          <div class="settings-field" style="grid-column:1/-1">
+            <label>분할 수</label>
+            <select name="division">
+              <option value="20" {{ "selected" if row.division == 20 }}>20분할</option>
+              <option value="30" {{ "selected" if row.division == 30 }}>30분할</option>
+              <option value="40" {{ "selected" if row.division == 40 }}>40분할</option>
+            </select>
+          </div>
+        </div>
+        <label class="settings-checkbox">
+          <input type="checkbox" name="disable_big_number" value="true" {{ "checked" if row.disable_big_number }} />
+          큰수 미사용 (별지점만 사용)
+        </label>
+        <div class="settings-actions">
+          <button type="submit" class="btn-save">설정 저장</button>
+        </div>
+      </form>
+      <div class="settings-actions" style="margin-top:0.5rem;">
+        <form method="post" action="/session/{{ row.session_id }}/reset" style="flex:1;"
+              onsubmit="return confirm('{{ row.session_id }} 세션을 초기화할까요?')">
+          <button type="submit" class="btn-reset" style="width:100%;">세션 초기화</button>
+        </form>
+        <form method="post" action="/session/{{ row.session_id }}/delete" style="flex:1;"
+              onsubmit="return confirm('{{ row.session_id }} 세션을 삭제할까요? 되돌릴 수 없습니다.')">
+          <button type="submit" class="btn-delete" style="width:100%;">세션 삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 내부 탭 -->
+    <div class="inner-tabs">
+      <button class="inner-tab active" data-itab="current-{{ row.session_id }}"
+              onclick="switchInner(this, 'current-{{ row.session_id }}')">현재</button>
+      <button class="inner-tab" data-itab="analysis-{{ row.session_id }}"
+              onclick="switchInner(this, 'analysis-{{ row.session_id }}')">분석</button>
+    </div>
+
+    <!-- ===== 현재 탭 ===== -->
+    <div class="inner-panel" id="current-{{ row.session_id }}">
+
+      <!-- T-VALUE 카드 -->
+      <div class="t-card">
+        <div class="t-card-head">
+          <div>
+            <div class="overline">T-VALUE</div>
+            <div class="t-big">{{ row.T | int if row.T == row.T | int else row.T }}<span class="frac"> / {{ row.division }}</span></div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:0.5rem;">
+            {% if row.qty == 0 and row.T == 0 %}
+            <form method="post" action="/run">
+              <button type="submit" class="first-buy-btn">처음매수</button>
+            </form>
+            {% else %}
+            <span class="phase-chip {{ row.phase_cls }}">{{ row.phase_label }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="t-progress"><div class="t-fill" style="width:{{ row.progress_pct }}%;"></div></div>
+        <div class="t-labels"><span>0</span><span>{{ (row.division / 2) | round | int }}</span><span>{{ row.division }}</span></div>
+      </div>
+
+      <!-- 통계 그리드 1: 평단가·보유수량·잔금 -->
+      <div class="stat-grid cols-3">
+        <div class="stat">
+          <div class="stat-label">평단가</div>
+          <div class="stat-value">{{ "$" + "%.2f"|format(row.avg_price) if row.avg_price else "–" }}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">보유수량</div>
+          <div class="stat-value">{{ row.qty }}주</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">잔금</div>
+          <div class="stat-value">${{ "{:,.2f}".format(row.cash) }}</div>
+        </div>
+      </div>
+
+      <!-- 통계 그리드 2: 별%·별지점·1회 매수금 -->
+      <div class="stat-grid cols-3">
+        <div class="stat">
+          <div class="stat-label">별%</div>
+          <div class="stat-value ok">{{ "%+.2f%%"|format(row.star_pct_val) }}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">별지점</div>
+          <div class="stat-value">{{ "$%.2f"|format(row.star_point_val) if row.star_point_val else "–" }}</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">1회 매수금</div>
+          <div class="stat-value acc">{{ "$%.2f"|format(row.buy_amount_val) if row.buy_amount_val else "–" }}</div>
+          {% if row.buy_amount_krw %}
+          <div class="stat-sub">₩{{ "{:,}".format(row.buy_amount_krw) }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- 환율 -->
+      {% if fx.rate %}
+      <div class="fx-line">USD/KRW ₩{{ "{:,.2f}".format(fx.rate) }} ({{ fx.date }})</div>
+      {% endif %}
+
+      <!-- 최근 종가 -->
+      {% if row.market.closes %}
+      <div class="closes-section">
+        <div class="closes-head">
+          <span class="title">{{ row.ticker }} 최근 종가</span>
+          {% if row.market.avg_5 %}
+          <span class="avg5">5일 평균 ${{ row.market.avg_5 }}</span>
+          {% endif %}
+        </div>
+        <div class="closes-grid">
+          {% for c in row.market.closes %}
+          <div class="close-cell {{ 'pos' if c.positive else 'neg' }}">
+            <div class="c-date">{{ c.date }}</div>
+            <div class="c-price">${{ c.close }}</div>
+            <div class="c-chg">{{ "%+.1f%%"|format(c.change_pct) }}</div>
+            <div class="c-high">H ${{ c.high }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- 거래일 변동 -->
+      {% set o = row.market.ohlc %}
+      {% if o and o.high is defined %}
+        {% set rng = o.high - o.low %}
+        {% if rng > 0 %}
+          {% set o_pct = (o.open - o.low) / rng * 100 %}
+          {% set c_pct = (o.close - o.low) / rng * 100 %}
+          {% set body_bot = o_pct if o_pct < c_pct else c_pct %}
+          {% set body_h   = ((c_pct - o_pct) | abs) %}
+          {% set is_pos = o.close >= o.open %}
+      <div class="ohlc-section">
+        <div class="ohlc-head">
+          <span class="ohlc-title">{{ o.date }} 거래일 변동</span>
+          <span class="ohlc-hl">H ${{ o.high }} · L ${{ o.low }}</span>
+        </div>
+        <div class="ohlc-cols">
+          <!-- 프리마켓 -->
+          <div class="ohlc-col">
+            <div class="ohlc-col-label">프리</div>
+            {% if o.pre %}
+            <div class="ohlc-price-top">${{ o.pre }}</div>
+            <div class="bar-wrap">
+              <div class="bar-line" style="background:var(--acc); bottom:30%; top:30%;"></div>
+            </div>
+            {% else %}
+            <div class="bar-wrap" style="display:flex;align-items:center;justify-content:center;">
+              <span style="font-size:0.6rem;color:var(--t4);">–</span>
+            </div>
+            {% endif %}
+          </div>
+          <!-- 정규 캔들 -->
+          <div class="ohlc-col">
+            <div class="ohlc-col-label">정규</div>
+            <div class="ohlc-price-top">${{ o.high }}</div>
+            <div class="candle-wrap">
+              <!-- wick -->
+              <div class="candle-wick" style="
+                background: {{ 'var(--ok)' if is_pos else 'var(--err)' }};
+                bottom: 0; top: 0;">
+              </div>
+              <!-- body -->
+              <div class="candle-body" style="
+                background: {{ 'var(--ok)' if is_pos else 'var(--err)' }};
+                bottom: {{ body_bot }}%;
+                height: {{ [body_h, 4] | max }}%;">
+              </div>
+              <!-- close label -->
+              <div style="position:absolute; left:50%; transform:translate(-50%,-50%); top:{{ 100 - c_pct }}%;
+                          width:8px; height:8px; background:var(--bg); border:2px solid {{ 'var(--ok)' if is_pos else 'var(--err)' }};
+                          border-radius:50%;"></div>
+            </div>
+            <div class="ohlc-price-bot">${{ o.low }}</div>
+          </div>
+          <!-- 애프터마켓 -->
+          <div class="ohlc-col">
+            <div class="ohlc-col-label">애프터</div>
+            {% if o.post %}
+            <div class="ohlc-price-top">${{ o.post }}</div>
+            <div class="bar-wrap">
+              <div class="bar-line" style="background:var(--rev); bottom:30%; top:30%;"></div>
+            </div>
+            {% else %}
+            <div class="bar-wrap" style="display:flex;align-items:center;justify-content:center;">
+              <span style="font-size:0.6rem;color:var(--t4);">–</span>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="ohlc-footer">
+          <span>종가 ${{ o.close }}</span>
+          <span>시가 ${{ o.open }}</span>
+        </div>
+      </div>
+        {% endif %}
+      {% endif %}
+
+      <!-- 오늘의 주문 -->
+      <div class="orders-section">
+        <div class="orders-head">
+          <span class="section-title">오늘의 주문</span>
+          <span style="font-size:0.72rem;color:var(--t3);">{{ row.sell_orders|length + row.buy_orders|length }}건</span>
+        </div>
+        <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
+        {% for ord in row.sell_orders %}
+        <div class="order-row sell">
+          <div><span class="order-label">{{ ord.label }}</span><span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span></div>
+          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+        </div>
+        {% else %}
+        <div class="empty-note">매도 주문 없음</div>
+        {% endfor %}
+        <div class="order-group-head buy-head orders-gap"><span class="order-dot buy-dot"></span>매수</div>
+        {% for ord in row.buy_orders %}
+        <div class="order-row buy">
+          <div><span class="order-label">{{ ord.label }}</span><span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span></div>
+          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+        </div>
+        {% else %}
+        <div class="empty-note">매수 주문 없음 (실행 전이거나 종료 상태)</div>
+        {% endfor %}
+      </div>
+
+      <!-- 거래 히스토리 -->
+      <div class="history-section">
+        <div class="orders-head">
+          <span class="section-title">거래 히스토리</span>
+          <span style="font-size:0.72rem;color:var(--t3);">{{ row.history|length }}건</span>
+        </div>
+        {% for h in row.history %}
+        <div class="history-row">
+          <span><span class="h-date">{{ h.date }}</span>{{ "리버스" if h.mode == "reverse" else "일반" }}</span>
+          <span class="h-summary">{{ h.summary }}</span>
+        </div>
+        {% else %}
+        <div class="empty-note">아직 실행 기록이 없습니다.</div>
+        {% endfor %}
+      </div>
+
+    </div><!-- /현재 탭 -->
+
+    <!-- ===== 분석 탭 ===== -->
+    <div class="inner-panel" id="analysis-{{ row.session_id }}" style="display:none;">
+
+      <!-- 종가 추이 차트 -->
+      <div class="chart-section">
+        <div class="card-head">
+          <span class="section-title">{{ row.ticker }} 종가 추이</span>
+          <div class="chart-period-btns" id="period-btns-{{ row.session_id }}">
+            <button class="period-btn" onclick="setChartPeriod('{{ row.session_id }}','3m',this)">3개월</button>
+            <button class="period-btn" onclick="setChartPeriod('{{ row.session_id }}','6m',this)">6개월</button>
+            <button class="period-btn active" onclick="setChartPeriod('{{ row.session_id }}','1y',this)">1년</button>
+          </div>
+        </div>
+        {% set s = row.market.stats_1y %}
+        {% if s %}
+        <div style="text-align:right; font-size:0.72rem; font-weight:700; color:{{ 'var(--ok)' if s.change_pct >= 0 else 'var(--err)' }}; margin-bottom:0.375rem;">
+          {{ "%+.1f%%"|format(s.change_pct) }}
+        </div>
+        <div class="chart-stats">
+          <div class="chart-stat">
+            <div class="chart-stat-label">1년 최저</div>
+            <div class="chart-stat-value">${{ s.min }}</div>
+          </div>
+          <div class="chart-stat">
+            <div class="chart-stat-label">현재</div>
+            <div class="chart-stat-value" style="color:var(--acc-s);">${{ s.current }}</div>
+          </div>
+          <div class="chart-stat">
+            <div class="chart-stat-label">1년 최고</div>
+            <div class="chart-stat-value">${{ s.max }}</div>
+          </div>
+        </div>
+        {% endif %}
+        <div class="chart-canvas-wrap">
+          <canvas id="chart-{{ row.session_id }}"></canvas>
+        </div>
+      </div>
+
+      <!-- 공포&탐욕 지수 -->
+      {% if fear_greed.value is not none %}
+      <div class="fg-section">
+        <div class="fg-head">
+          <span class="section-title">공포 &amp; 탐욕 지수</span>
+          <span class="fg-source">alternative.me</span>
+        </div>
+        <div class="fg-value-row">
+          <span class="fg-num" style="color:{{ 'var(--err)' if fear_greed.value <= 44 else ('var(--warn)' if fear_greed.value <= 55 else 'var(--ok)') }};">{{ fear_greed.value }}</span>
+          <span class="fg-label" style="color:{{ 'var(--err)' if fear_greed.value <= 44 else ('var(--warn)' if fear_greed.value <= 55 else 'var(--ok)') }};">{{ fear_greed.label_ko }}</span>
+        </div>
+        <div class="fg-bar-wrap">
+          <div class="fg-needle" style="left:{{ fear_greed.value }}%;"></div>
+        </div>
+        <div class="fg-bar-labels">
+          <span>극단적 공포</span><span>공포</span><span>중립</span><span>탐욕</span><span>극단적 탐욕</span>
+        </div>
+        {% if fear_greed.history %}
+        <div class="fg-chart-wrap">
+          <canvas id="fg-chart-{{ row.session_id }}"></canvas>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- 새 사이클 시작 (T=0 일 때) -->
+      {% if row.T == 0 and row.qty == 0 %}
+        {% set prev_close = row.market.closes[0].close if row.market.closes else None %}
+      <div class="new-cycle-section">
+        <div class="new-cycle-head">
+          <span class="star-icon">☆</span> 새 사이클 시작
+        </div>
+        <div class="new-cycle-grid">
+          <div>
+            <div class="nc-item-label">1회 매수금</div>
+            <div class="nc-item-value">{{ "$%.2f"|format(row.buy_amount_val) if row.buy_amount_val else "–" }}</div>
+          </div>
+          <div>
+            <div class="nc-item-label">전일 종가</div>
+            <div class="nc-item-value">{{ "$%.2f"|format(prev_close) if prev_close else "–" }}</div>
+          </div>
+        </div>
+        {% if prev_close and row.first_buy_premium_pct %}
+          {% set big_num = (prev_close * (1 + row.first_buy_premium_pct / 100)) | round(2) %}
+        <div class="nc-formula">
+          ★ 큰수 = 종가 × {{ "%.2f"|format(1 + row.first_buy_premium_pct / 100) }} = <strong>${{ "%.2f"|format(big_num) }}</strong>
+          (큰수% 설정: {{ row.first_buy_premium_pct }}%)
+        </div>
+        <div class="nc-formula" style="margin-top:0.5rem; color:var(--t3);">
+          주문표대로 LOC 매수를 걸고, 체결되면 "오늘 실행" 버튼으로 기록하세요.
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div><!-- /분석 탭 -->
+
+    <!-- 차트 데이터 JSON (숨김) -->
+    <script type="application/json" id="chartdata-{{ row.session_id }}">{{ row.market.chart | tojson }}</script>
+    {% if fear_greed.history %}
+    <script type="application/json" id="fgdata-{{ row.session_id }}">{{ fear_greed.history | tojson }}</script>
+    {% endif %}
+
+  </div><!-- /session-panel -->
+  {% endfor %}
+
+</div><!-- /max-w -->
+
+<!-- FAB -->
+<div class="fab-wrap">
+  <form method="post" action="/run">
+    <button type="submit" class="fab">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-14 9V3z"/></svg>
+      오늘 실행
+    </button>
+  </form>
+</div>
+
+<script>
+/* ===================== GLOBALS ===================== */
+const THEMES = ['dark','light','midnight'];
+const charts = {};
+const fgCharts = {};
+const chartData = {};
+const fgData = {};
+
+/* ===================== THEME ===================== */
+function cycleTheme() {
+  const cur = document.documentElement.dataset.theme || 'dark';
+  const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('theme', next);
+  // 차트 색상 업데이트
+  Object.keys(charts).forEach(id => updateChartColors(id));
+}
+
+function restoreTheme() {
+  const t = localStorage.getItem('theme');
+  if (t && THEMES.includes(t)) document.documentElement.dataset.theme = t;
+}
+
+/* ===================== SESSION TABS ===================== */
+function switchSession(id) {
+  document.querySelectorAll('.session-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.session-tab').forEach(t => t.classList.remove('active'));
+  const panel = document.getElementById('panel-' + id);
+  if (panel) panel.classList.add('active');
+  const tab = document.querySelector(`[data-session="${id}"]`);
+  if (tab) tab.classList.add('active');
+  localStorage.setItem('activeSession', id);
+}
+
+function restoreSession() {
+  const saved = localStorage.getItem('activeSession');
+  const tabs = document.querySelectorAll('.session-tab');
+  if (!tabs.length) return;
+  const target = saved && document.getElementById('panel-' + saved) ? saved : tabs[0].dataset.session;
+  switchSession(target);
+}
+
+/* ===================== INNER TABS ===================== */
+function switchInner(btn, tabId) {
+  const panel = btn.closest('.session-panel');
+  panel.querySelectorAll('.inner-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  panel.querySelectorAll('.inner-panel').forEach(p => p.style.display = 'none');
+  const target = document.getElementById(tabId);
+  if (target) target.style.display = 'block';
+  // 분석 탭 차트 초기화
+  if (tabId.startsWith('analysis-')) {
+    const sid = tabId.replace('analysis-', '');
+    initPriceChart(sid);
+    initFgChart(sid);
+  }
+  const sid = tabId.split('-').pop();
+  localStorage.setItem('innerTab_' + sid, tabId.split('-')[0]);
+}
+
+function restoreInnerTabs() {
+  document.querySelectorAll('.session-panel').forEach(panel => {
+    const sid = panel.id.replace('panel-', '');
+    const saved = localStorage.getItem('innerTab_' + sid);
+    if (saved === 'analysis') {
+      const btn = panel.querySelector(`[data-itab="analysis-${sid}"]`);
+      if (btn) btn.click();
+    }
+  });
+}
+
+/* ===================== SETTINGS PANEL ===================== */
+function toggleSettings(sid) {
+  const el = document.getElementById('settings-' + sid);
+  el.classList.toggle('open');
+}
+
+/* ===================== PRICE CHART ===================== */
+function initPriceChart(sid) {
+  if (charts[sid]) return;
+  const el = document.getElementById('chart-' + sid);
+  const dataEl = document.getElementById('chartdata-' + sid);
+  if (!el || !dataEl) return;
+
+  const raw = JSON.parse(dataEl.textContent);
+  chartData[sid] = raw;
+
+  const ctx = el.getContext('2d');
+  const color = getComputedStyle(document.documentElement).getPropertyValue('--chart-line').trim();
+  const fill = getComputedStyle(document.documentElement).getPropertyValue('--chart-fill').trim();
+
+  charts[sid] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: raw.dates,
+      datasets: [{
+        data: raw.closes,
+        borderColor: color,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: true,
+        backgroundColor: (ctx2) => {
+          const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, ctx2.chart.height);
+          g.addColorStop(0, fill);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          return g;
+        },
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: {
+        mode: 'index', intersect: false,
+        callbacks: { label: (i) => ' $' + i.parsed.y.toFixed(2) },
+      }},
+      scales: {
+        x: { display: false },
+        y: { display: false, grace: '5%' },
+      },
+    }
+  });
+}
+
+function setChartPeriod(sid, period, btn) {
+  const data = chartData[sid];
+  const chart = charts[sid];
+  if (!data || !chart) return;
+
+  document.querySelectorAll(`#period-btns-${sid} .period-btn`).forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const n = data.dates.length;
+  let from = 0;
+  if (period === '3m') from = Math.max(0, n - 63);
+  else if (period === '6m') from = Math.max(0, n - 126);
+
+  chart.data.labels = data.dates.slice(from);
+  chart.data.datasets[0].data = data.closes.slice(from);
+  chart.update('none');
+}
+
+function updateChartColors(sid) {
+  const chart = charts[sid];
+  if (!chart) return;
+  const style = getComputedStyle(document.documentElement);
+  const color = style.getPropertyValue('--chart-line').trim();
+  const fill = style.getPropertyValue('--chart-fill').trim();
+  chart.data.datasets[0].borderColor = color;
+  chart.data.datasets[0].backgroundColor = (ctx2) => {
+    const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, ctx2.chart.height);
+    g.addColorStop(0, fill); g.addColorStop(1, 'rgba(0,0,0,0)');
+    return g;
+  };
+  chart.update('none');
+  // F&G 차트
+  const fg = fgCharts[sid];
+  if (fg) {
+    fg.data.datasets[0].borderColor = color;
+    fg.update('none');
+  }
+}
+
+/* ===================== FEAR & GREED CHART ===================== */
+function initFgChart(sid) {
+  if (fgCharts[sid]) return;
+  const el = document.getElementById('fg-chart-' + sid);
+  const dataEl = document.getElementById('fgdata-' + sid);
+  if (!el || !dataEl) return;
+
+  const raw = JSON.parse(dataEl.textContent);
+  fgData[sid] = raw;
+
+  const style = getComputedStyle(document.documentElement);
+  const color = style.getPropertyValue('--chart-line').trim();
+
+  fgCharts[sid] = new Chart(el.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: raw.map(d => d.date),
+      datasets: [{
+        data: raw.map(d => d.value),
+        borderColor: color,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        fill: false,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: {
+        mode: 'index', intersect: false,
+        callbacks: { label: (i) => ' ' + i.parsed.y },
+      }},
+      scales: {
+        x: { display: false },
+        y: { min: 0, max: 100, display: false },
+      },
+    }
+  });
+}
+
+/* ===================== INIT ===================== */
+restoreTheme();
+restoreSession();
+restoreInnerTabs();
+</script>
+</body>
+</html>

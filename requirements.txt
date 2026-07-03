@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+apscheduler
+httpx
+pydantic
+pyyaml
+python-dotenv
+jinja2
+python-multipart
+pytest
+yfinance
+pandas-market-calendars

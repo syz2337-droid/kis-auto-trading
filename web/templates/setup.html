@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>무한매수법 자동매매 설정</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+  <style>
+    /* muhan4.pages.dev [data-theme=light] 토큰을 그대로 사용 */
+    :root {
+      --color-surface: #f7f4fb;
+      --color-surface-2: #fff;
+      --color-surface-3: #f1ecf7;
+      --color-surface-4: #e6dff0;
+      --color-border: #e5dcef;
+      --color-text: #1a1727;
+      --color-text-secondary: #4d4858;
+      --color-text-muted: #6f6a7d;
+      --color-text-faint: #9b94aa;
+      --color-accent: #7c6ee0;
+      --color-accent-strong: #6b5cd9;
+      --font-display: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: var(--font-display);
+      background: var(--color-surface);
+      color: var(--color-text);
+      margin: 0;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+    .wrap { max-width: 28rem; margin: 0 auto; }
+    .hero { text-align: center; margin-bottom: 1.75rem; }
+    .hero h1 { font-size: 1.5rem; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+    .hero .ver { color: var(--color-accent-strong); font-weight: 700; font-size: 0.9rem; margin-top: 0.25rem; }
+
+    .card { background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: 1.5rem; padding: 1.5rem; box-shadow: 0 4px 24px rgba(124,110,224,0.08); }
+    .field { margin-bottom: 1.5rem; }
+    .field-label { font-size: 0.85rem; font-weight: 700; color: var(--color-text); margin-bottom: 0.6rem; display: flex; justify-content: space-between; align-items: baseline; }
+    .field-hint { font-weight: 500; font-size: 0.7rem; color: var(--color-text-faint); }
+    .field-desc { font-size: 0.75rem; color: var(--color-text-muted); margin-top: 0.5rem; line-height: 1.5; }
+
+    .btn-group { display: grid; gap: 0.5rem; }
+    .btn-group.cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .btn-group.cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .opt-btn {
+      font-family: inherit; font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      padding: 0.85rem 0.5rem; border-radius: 0.85rem; border: 1.5px solid var(--color-border);
+      background: var(--color-surface-3); color: var(--color-text-secondary);
+      transition: all 0.12s;
+    }
+    .opt-btn.active { border-color: var(--color-accent); background: rgba(124,110,224,0.1); color: var(--color-accent-strong); }
+
+    input[type="number"], input[type="text"] {
+      width: 100%; font-family: var(--font-mono); font-size: 1rem; font-weight: 700;
+      background: var(--color-surface-3); border: 1.5px solid var(--color-border); color: var(--color-text);
+      border-radius: 0.85rem; padding: 0.9rem 1rem; outline: none;
+    }
+    input:focus { border-color: var(--color-accent); }
+
+    .submit-btn {
+      width: 100%; padding: 1rem; font-size: 1rem; font-weight: 800; font-family: inherit;
+      background: var(--color-accent); color: #fff; border: none; border-radius: 1rem; cursor: pointer;
+      margin-top: 0.5rem;
+    }
+    .submit-btn:hover { background: var(--color-accent-strong); }
+
+    .hidden { display: none; }
+    .custom-ticker-input { margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>무한매수법</h1>
+      <div class="ver">자동매매 설정</div>
+    </div>
+
+    <form class="card" method="post" action="/setup">
+      <div class="field">
+        <div class="field-label">종목</div>
+        <div class="btn-group cols-3" id="ticker-group">
+          <button type="button" class="opt-btn active" data-ticker="TQQQ" data-target="15">TQQQ</button>
+          <button type="button" class="opt-btn" data-ticker="SOXL" data-target="20">SOXL</button>
+          <button type="button" class="opt-btn" data-ticker="CUSTOM" data-target="15">⚙ 커스텀</button>
+        </div>
+        <input type="text" name="ticker" id="ticker-input" class="custom-ticker-input hidden" placeholder="예: SOXS, NVDL ..." />
+      </div>
+
+      <div class="field">
+        <div class="field-label">분할 수<span class="field-hint">적을수록 공격적, 클수록 안정적</span></div>
+        <div class="btn-group cols-3" id="division-group">
+          <button type="button" class="opt-btn" data-division="20">20분할</button>
+          <button type="button" class="opt-btn" data-division="30">30분할</button>
+          <button type="button" class="opt-btn active" data-division="40">40분할</button>
+        </div>
+        <input type="hidden" name="division" id="division-input" value="40" />
+      </div>
+
+      <div class="field">
+        <div class="field-label">목표 수익률 (%)<span class="field-hint">기본 15% (라오어 원칙)</span></div>
+        <input type="number" name="target_profit_pct" id="target-input" value="15" step="0.1" />
+        <div class="field-desc">별%, 지정가매도 가격, 리버스 복귀 조건에 적용됩니다</div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">큰수 % (종가 × 배수)<span class="field-hint">기본 12% · 범위 0~40%</span></div>
+        <input type="number" name="big_number_pct" value="12" step="0.1" min="0" max="40" />
+        <div class="field-desc">증권사 LOC 상한 회피용 매수 가격. 낮을수록 보수적, 높을수록 공격적.</div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">하방 LOC 줄 수<span class="field-hint">기본 8줄 · 범위 1~30줄</span></div>
+        <input type="number" name="loc_lines" value="8" step="1" min="1" max="30" />
+        <div class="field-desc">메인 매수 아래 LOC를 몇 줄 깔지 설정 (처음매수는 +2줄)</div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">하방 LOC 주식 수 (1줄당)<span class="field-hint">기본 1주 · 범위 1~20주</span></div>
+        <input type="number" name="loc_qty_per_line" value="1" step="1" min="1" max="20" />
+      </div>
+
+      <div class="field">
+        <div class="btn-group cols-2" id="mode-group">
+          <button type="button" class="opt-btn active" data-mode="new">새로 시작</button>
+          <button type="button" class="opt-btn" data-mode="existing">중간 진입</button>
+        </div>
+        <input type="hidden" name="entry_mode" id="entry-mode-input" value="new" />
+      </div>
+
+      <div id="existing-fields" class="hidden">
+        <div class="field">
+          <div class="field-label">현재 평단가 ($)</div>
+          <input type="number" name="avg_price" value="0" step="0.01" />
+        </div>
+        <div class="field">
+          <div class="field-label">현재 보유수량 (주)</div>
+          <input type="number" name="qty" value="0" step="1" />
+        </div>
+        <div class="field">
+          <div class="field-label">현재 잔금 ($)</div>
+          <input type="number" name="cash" value="0" step="0.01" />
+        </div>
+        <div class="field">
+          <div class="field-label">현재 T값</div>
+          <input type="number" name="t_value" value="0" step="0.01" />
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">원금 ($)</div>
+        <input type="number" name="principal" id="principal-input" value="20000" step="100" />
+      </div>
+
+      <button type="submit" class="submit-btn">시작하기</button>
+    </form>
+  </div>
+
+  <script>
+    function selectGroup(groupId, attr, hiddenId, onSelect) {
+      const group = document.getElementById(groupId);
+      group.querySelectorAll('.opt-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          group.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const val = btn.dataset[attr];
+          if (hiddenId) document.getElementById(hiddenId).value = val;
+          if (onSelect) onSelect(btn, val);
+        });
+      });
+    }
+
+    selectGroup('division-group', 'division', 'division-input');
+
+    selectGroup('ticker-group', 'ticker', null, (btn) => {
+      const tickerInput = document.getElementById('ticker-input');
+      const targetInput = document.getElementById('target-input');
+      if (btn.dataset.ticker === 'CUSTOM') {
+        tickerInput.classList.remove('hidden');
+        tickerInput.value = '';
+        tickerInput.required = true;
+      } else {
+        tickerInput.classList.add('hidden');
+        tickerInput.value = btn.dataset.ticker;
+        tickerInput.required = false;
+        targetInput.value = btn.dataset.target;
+      }
+    });
+    // 초기값: TQQQ
+    document.getElementById('ticker-input').value = 'TQQQ';
+
+    selectGroup('mode-group', 'mode', 'entry-mode-input', (btn) => {
+      document.getElementById('existing-fields').classList.toggle('hidden', btn.dataset.mode !== 'existing');
+    });
+  </script>
+</body>
+</html>
