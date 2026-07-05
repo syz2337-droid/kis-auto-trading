@@ -260,10 +260,12 @@
     .hist-summary-bar { display:flex; gap:0.75rem; flex-wrap:wrap; background:var(--bg3); border-radius:0.625rem; padding:0.5rem 0.75rem; margin-bottom:0.75rem; font-size:0.7rem; align-items:center; }
     .hist-summary-item { color:var(--t3); }
     .hist-summary-item b { font-family:var(--mono); color:var(--t1); font-weight:600; font-style:normal; }
-    .fill-badge { font-size:0.58rem; font-weight:700; border-radius:0.25rem; padding:0.1rem 0.35rem; margin-left:0.35rem; vertical-align:middle; }
-    .fill-badge.filled  { color:var(--ok);  background:color-mix(in srgb,var(--ok)  15%,transparent); }
-    .fill-badge.pending { color:var(--t4);  background:var(--bg4); }
-    .fill-badge.unknown { color:var(--warn); background:color-mix(in srgb,var(--warn) 12%,transparent); }
+    .fill-badge { font-size:0.6rem; font-weight:700; border-radius:999px; padding:0.15rem 0.5rem; margin-left:0.4rem; vertical-align:middle; white-space:nowrap; }
+    .fill-badge.filled  { color:#fff; background:var(--ok); }
+    .fill-badge.pending { color:var(--t4); border:1px solid var(--t4); }
+    .fill-badge.unknown { color:var(--warn); border:1px dashed var(--warn); }
+    .order-row.order-unfilled { opacity:0.42; }
+    .order-row.order-unfilled:hover { opacity:0.75; transition:opacity 0.15s; }
 
     /* ===================== 분석 탭 ===================== */
     .chart-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
@@ -747,20 +749,65 @@
       </div>
 
       <!-- 거래 히스토리 -->
+      {% if row.history %}
       <div class="history-section">
-        <div class="orders-head">
+        <div class="orders-head" style="margin-bottom:0.75rem;">
           <span class="section-title">거래 히스토리</span>
-          <span style="font-size:0.72rem;color:var(--t3);">{{ row.history|length }}건</span>
+          <span style="font-size:0.72rem;color:var(--t3);">{{ row.history|length }}일</span>
+        </div>
+        <div class="hist-date-tabs" id="htabs-cur-{{ row.session_id }}">
+          {% for h in row.history %}
+          <button class="hist-date-btn {% if loop.first %}active{% endif %}"
+            onclick="switchHistDate('cur','{{ row.session_id }}',{{ loop.index0 }},this)">{{ h.date }}</button>
+          {% endfor %}
         </div>
         {% for h in row.history %}
-        <div class="history-row">
-          <span><span class="h-date">{{ h.date }}</span>{{ "리버스" if h.mode == "reverse" else "일반" }}</span>
-          <span class="h-summary">{{ h.summary }}</span>
+        <div id="hday-cur-{{ row.session_id }}-{{ loop.index0 }}" {% if not loop.first %}style="display:none"{% endif %}>
+          <div class="hist-summary-bar">
+            <div class="hist-summary-item">T <b>{{ h.T }}</b></div>
+            {% if h.avg_price %}<div class="hist-summary-item">평단 <b>${{ "%.2f"|format(h.avg_price) }}</b></div>{% endif %}
+            {% if h.qty is not none %}<div class="hist-summary-item">보유 <b>{{ h.qty }}주</b></div>{% endif %}
+            {% if h.cash is not none %}<div class="hist-summary-item">잔금 <b>${{ "{:,.0f}".format(h.cash) }}</b></div>{% endif %}
+            <span class="phase-chip {{ 'reverse' if h.mode == 'reverse' else 'first' }}" style="font-size:0.6rem;padding:0.1rem 0.45rem;">{{ "리버스" if h.mode == "reverse" else "일반" }}</span>
+          </div>
+          {% if h.orders %}
+            {% set h_sells = h.orders | selectattr("side","eq","sell") | list %}
+            {% set h_buys  = h.orders | selectattr("side","eq","buy")  | list %}
+            {% if h_sells %}
+            <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
+            {% for o in h_sells %}
+            {% set tag = "LOC" if o.ord_dvsn == "34" else ("MOC" if o.ord_dvsn == "33" else "지정가") %}
+            <div class="order-row sell {% if o.filled == false %}order-unfilled{% endif %}">
+              <div><span class="order-label">{{ o.note if o.note else "–" }}</span><span class="order-tag {{ tag }}">{{ tag }}</span>
+                {% if o.filled is none %}<span class="fill-badge unknown">미확인</span>
+                {% elif o.filled %}<span class="fill-badge filled">✓ 체결</span>
+                {% else %}<span class="fill-badge pending">○ 미체결</span>{% endif %}
+              </div>
+              <div><span class="order-price">{{ "$%.2f"|format(o.price) if o.price else "MOC" }}</span><span class="order-qty">{{ o.qty }}주</span></div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% if h_buys %}
+            <div class="order-group-head buy-head {% if h_sells %}orders-gap{% endif %}"><span class="order-dot buy-dot"></span>매수</div>
+            {% for o in h_buys %}
+            {% set tag = "LOC" if o.ord_dvsn == "34" else ("MOC" if o.ord_dvsn == "33" else "지정가") %}
+            <div class="order-row buy {% if o.filled == false %}order-unfilled{% endif %}">
+              <div><span class="order-label">{{ o.note if o.note else "–" }}</span><span class="order-tag {{ tag }}">{{ tag }}</span>
+                {% if o.filled is none %}<span class="fill-badge unknown">미확인</span>
+                {% elif o.filled %}<span class="fill-badge filled">✓ 체결</span>
+                {% else %}<span class="fill-badge pending">○ 미체결</span>{% endif %}
+              </div>
+              <div><span class="order-price">${{ "%.2f"|format(o.price) }}</span><span class="order-qty">{{ o.qty }}주</span></div>
+            </div>
+            {% endfor %}
+            {% endif %}
+          {% else %}
+          <div class="empty-note">주문 내역 없음</div>
+          {% endif %}
         </div>
-        {% else %}
-        <div class="empty-note">아직 실행 기록이 없습니다.</div>
         {% endfor %}
       </div>
+      {% endif %}
 
     </div><!-- /현재 탭 -->
 
@@ -1054,17 +1101,13 @@
               <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
               {% for o in h_sells %}
               {% set tag = "LOC" if o.ord_dvsn == "34" else ("MOC" if o.ord_dvsn == "33" else "지정가") %}
-              <div class="order-row sell">
+              <div class="order-row sell {% if o.filled == false %}order-unfilled{% endif %}">
                 <div>
                   <span class="order-label">{{ o.note if o.note else "–" }}</span>
                   <span class="order-tag {{ tag }}">{{ tag }}</span>
-                  {% if o.filled is none or o.filled is not defined %}
-                  <span class="fill-badge unknown">미확인</span>
-                  {% elif o.filled %}
-                  <span class="fill-badge filled">체결</span>
-                  {% else %}
-                  <span class="fill-badge pending">미체결</span>
-                  {% endif %}
+                  {% if o.filled is none %}<span class="fill-badge unknown">미확인</span>
+                  {% elif o.filled %}<span class="fill-badge filled">✓ 체결</span>
+                  {% else %}<span class="fill-badge pending">○ 미체결</span>{% endif %}
                 </div>
                 <div>
                   <span class="order-price">{{ "$%.2f"|format(o.price) if o.price else "MOC" }}</span>
@@ -1079,17 +1122,13 @@
               <div class="order-group-head buy-head {% if h_sells %}orders-gap{% endif %}"><span class="order-dot buy-dot"></span>매수</div>
               {% for o in h_buys %}
               {% set tag = "LOC" if o.ord_dvsn == "34" else ("MOC" if o.ord_dvsn == "33" else "지정가") %}
-              <div class="order-row buy">
+              <div class="order-row buy {% if o.filled == false %}order-unfilled{% endif %}">
                 <div>
                   <span class="order-label">{{ o.note if o.note else "–" }}</span>
                   <span class="order-tag {{ tag }}">{{ tag }}</span>
-                  {% if o.filled is none or o.filled is not defined %}
-                  <span class="fill-badge unknown">미확인</span>
-                  {% elif o.filled %}
-                  <span class="fill-badge filled">체결</span>
-                  {% else %}
-                  <span class="fill-badge pending">미체결</span>
-                  {% endif %}
+                  {% if o.filled is none %}<span class="fill-badge unknown">미확인</span>
+                  {% elif o.filled %}<span class="fill-badge filled">✓ 체결</span>
+                  {% else %}<span class="fill-badge pending">○ 미체결</span>{% endif %}
                 </div>
                 <div>
                   <span class="order-price">${{ "%.2f"|format(o.price) }}</span>
