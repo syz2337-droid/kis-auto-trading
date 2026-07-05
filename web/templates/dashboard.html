@@ -253,9 +253,17 @@
 
     /* ===================== 히스토리 ===================== */
     .history-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
-    .history-row { display: flex; justify-content: space-between; align-items: center; padding: 0.45rem 0.625rem; background: var(--bg3); border-radius: 0.5rem; margin-bottom: 0.25rem; font-size: 0.72rem; }
-    .h-date { color: var(--t3); margin-right: 0.5rem; }
-    .h-summary { font-family: var(--mono); color: var(--t1); }
+    .hist-date-tabs { display:flex; gap:0.25rem; overflow-x:auto; scrollbar-width:none; margin-bottom:0.875rem; }
+    .hist-date-tabs::-webkit-scrollbar { display:none; }
+    .hist-date-btn { flex-shrink:0; padding:0.3rem 0.65rem; font-size:0.72rem; font-weight:600; border-radius:999px; border:1px solid var(--border); color:var(--t3); background:var(--bg3); cursor:pointer; transition:all 0.15s; }
+    .hist-date-btn.active { color:var(--acc-s); background:color-mix(in srgb,var(--acc) 12%,transparent); border-color:color-mix(in srgb,var(--acc) 30%,transparent); }
+    .hist-summary-bar { display:flex; gap:0.75rem; flex-wrap:wrap; background:var(--bg3); border-radius:0.625rem; padding:0.5rem 0.75rem; margin-bottom:0.75rem; font-size:0.7rem; align-items:center; }
+    .hist-summary-item { color:var(--t3); }
+    .hist-summary-item b { font-family:var(--mono); color:var(--t1); font-weight:600; font-style:normal; }
+    .fill-badge { font-size:0.58rem; font-weight:700; border-radius:0.25rem; padding:0.1rem 0.35rem; margin-left:0.35rem; vertical-align:middle; }
+    .fill-badge.filled  { color:var(--ok);  background:color-mix(in srgb,var(--ok)  15%,transparent); }
+    .fill-badge.pending { color:var(--t4);  background:var(--bg4); }
+    .fill-badge.unknown { color:var(--warn); background:color-mix(in srgb,var(--warn) 12%,transparent); }
 
     /* ===================== 분석 탭 ===================== */
     .chart-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
@@ -1008,15 +1016,94 @@
         <!-- 거래 히스토리 -->
         {% if r.history %}
         <div class="history-section">
-          <div class="orders-head">
+          <div class="orders-head" style="margin-bottom:0.75rem;">
             <span class="section-title">거래 히스토리</span>
-            <span style="font-size:0.72rem;color:var(--t3);">{{ r.history|length }}건</span>
+            <span style="font-size:0.72rem;color:var(--t3);">{{ r.history|length }}일</span>
           </div>
+
+          <!-- 날짜 탭 -->
+          <div class="hist-date-tabs" id="htabs-{{ row.session_id }}-{{ r.session_id }}">
+            {% for h in r.history %}
+            <button class="hist-date-btn {% if loop.first %}active{% endif %}"
+              onclick="switchHistDate('{{ row.session_id }}','{{ r.session_id }}',{{ loop.index0 }},this)">
+              {{ h.date }}
+            </button>
+            {% endfor %}
+          </div>
+
+          <!-- 날짜별 패널 -->
           {% for h in r.history %}
-          <div class="history-row">
-            <span><span class="h-date">{{ h.date }}</span>{{ "리버스" if h.mode == "reverse" else "일반" }}</span>
-            <span class="h-summary">{{ h.summary }}</span>
-          </div>
+          <div id="hday-{{ row.session_id }}-{{ r.session_id }}-{{ loop.index0 }}"
+            {% if not loop.first %}style="display:none"{% endif %}>
+
+            <!-- 요약 바 -->
+            <div class="hist-summary-bar">
+              <div class="hist-summary-item">T <b>{{ h.T }}</b></div>
+              {% if h.avg_price %}<div class="hist-summary-item">평단 <b>${{ "%.2f"|format(h.avg_price) }}</b></div>{% endif %}
+              {% if h.qty is not none %}<div class="hist-summary-item">보유 <b>{{ h.qty }}주</b></div>{% endif %}
+              {% if h.cash is not none %}<div class="hist-summary-item">잔금 <b>${{ "{:,.0f}".format(h.cash) }}</b></div>{% endif %}
+              <span class="phase-chip {{ 'reverse' if h.mode == 'reverse' else 'first' }}" style="font-size:0.6rem;padding:0.1rem 0.45rem;">{{ "리버스" if h.mode == "reverse" else "일반" }}</span>
+            </div>
+
+            {% if h.orders %}
+              {% set h_sells = h.orders | selectattr("side","eq","sell") | list %}
+              {% set h_buys  = h.orders | selectattr("side","eq","buy")  | list %}
+
+              <!-- 매도 주문 -->
+              {% if h_sells %}
+              <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
+              {% for o in h_sells %}
+              {% set tag = "LOC" if o.ord_dvsn == "34" else ("MOC" if o.ord_dvsn == "33" else "지정가") %}
+              <div class="order-row sell">
+                <div>
+                  <span class="order-label">{{ o.note if o.note else "–" }}</span>
+                  <span class="order-tag {{ tag }}">{{ tag }}</span>
+                  {% if o.filled is none or o.filled is not defined %}
+                  <span class="fill-badge unknown">미확인</span>
+                  {% elif o.filled %}
+                  <span class="fill-badge filled">체결</span>
+                  {% else %}
+                  <span class="fill-badge pending">미체결</span>
+                  {% endif %}
+                </div>
+                <div>
+                  <span class="order-price">{{ "$%.2f"|format(o.price) if o.price else "MOC" }}</span>
+                  <span class="order-qty">{{ o.qty }}주</span>
+                </div>
+              </div>
+              {% endfor %}
+              {% endif %}
+
+              <!-- 매수 주문 -->
+              {% if h_buys %}
+              <div class="order-group-head buy-head {% if h_sells %}orders-gap{% endif %}"><span class="order-dot buy-dot"></span>매수</div>
+              {% for o in h_buys %}
+              {% set tag = "LOC" if o.ord_dvsn == "34" else ("MOC" if o.ord_dvsn == "33" else "지정가") %}
+              <div class="order-row buy">
+                <div>
+                  <span class="order-label">{{ o.note if o.note else "–" }}</span>
+                  <span class="order-tag {{ tag }}">{{ tag }}</span>
+                  {% if o.filled is none or o.filled is not defined %}
+                  <span class="fill-badge unknown">미확인</span>
+                  {% elif o.filled %}
+                  <span class="fill-badge filled">체결</span>
+                  {% else %}
+                  <span class="fill-badge pending">미체결</span>
+                  {% endif %}
+                </div>
+                <div>
+                  <span class="order-price">${{ "%.2f"|format(o.price) }}</span>
+                  <span class="order-qty">{{ o.qty }}주</span>
+                </div>
+              </div>
+              {% endfor %}
+              {% endif %}
+
+            {% else %}
+            <div class="empty-note">주문 내역 없음</div>
+            {% endif %}
+
+          </div><!-- /hday -->
           {% endfor %}
         </div>
         {% endif %}
@@ -1383,6 +1470,18 @@ function initFgChart(sid) {
       },
     }
   });
+}
+
+/* ===================== HISTORY DATE TABS ===================== */
+function switchHistDate(panelSid, rSid, idx, btn) {
+  const tabsEl = document.getElementById('htabs-' + panelSid + '-' + rSid);
+  if (tabsEl) {
+    tabsEl.querySelectorAll('.hist-date-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+  document.querySelectorAll('[id^="hday-' + panelSid + '-' + rSid + '-"]').forEach(el => el.style.display = 'none');
+  const target = document.getElementById('hday-' + panelSid + '-' + rSid + '-' + idx);
+  if (target) target.style.display = 'block';
 }
 
 /* ===================== ANALYSIS SUB-TABS ===================== */

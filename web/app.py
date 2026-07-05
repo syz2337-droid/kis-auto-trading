@@ -57,16 +57,21 @@ def _record_results(results: list[dict], trigger: str) -> None:
         if r.get("skipped"):
             continue
         session_id = r["session_id"]
-        _latest_orders[session_id] = r.get("orders", [])
+        orders = r.get("orders", [])
+        _latest_orders[session_id] = orders
         _history.setdefault(session_id, []).insert(
             0,
             {
-                "date": now.strftime("%m/%d"),
+                "date": f"{now.month}/{now.day}",
                 "mode": r.get("mode"),
-                "summary": f"T={r.get('T')} · 평단 ${r.get('avg_price')} · {r.get('qty')}주",
+                "T": r.get("T"),
+                "avg_price": r.get("avg_price"),
+                "qty": r.get("qty"),
+                "cash": r.get("cash"),
+                "orders": [{**o, "filled": None} for o in orders],
             },
         )
-        _history[session_id] = _history[session_id][:10]
+        _history[session_id] = _history[session_id][:30]
     _run_log.append({"time": now.isoformat(), "trigger": trigger, "results": results})
 
 
@@ -78,7 +83,7 @@ def _scheduled_run() -> None:
 scheduler = BackgroundScheduler(timezone=KST)
 scheduler.add_job(
     _scheduled_run,
-    CronTrigger(day_of_week="mon-fri", hour=16, minute=50, timezone=KST),
+    CronTrigger(day_of_week="mon-fri", hour=17, minute=50, timezone=KST),
     id="daily_run",
 )
 
@@ -90,17 +95,45 @@ def _startup() -> None:
     # 샘플 데이터 (UI 미리보기용 — API 연결 후 실제 데이터로 대체됨)
     for sid in ["TQQQ_1", "TQQQ_2"]:
         _latest_orders[sid] = [
-            {"side": "buy",  "qty": 3, "price": 72.50, "ord_dvsn": "34", "note": "별지점 LOC"},
-            {"side": "buy",  "qty": 3, "price": 70.80, "ord_dvsn": "34", "note": "하방 LOC #1"},
-            {"side": "buy",  "qty": 3, "price": 69.10, "ord_dvsn": "34", "note": "하방 LOC #2"},
-            {"side": "sell", "qty": 2, "price": 74.20, "ord_dvsn": "34", "note": "쿼터매도 LOC"},
+            {"side": "buy",  "qty": 3, "price": 72.50, "ord_dvsn": "34", "note": "★ 별지점"},
+            {"side": "buy",  "qty": 3, "price": 70.80, "ord_dvsn": "34", "note": "평단가"},
+            {"side": "buy",  "qty": 2, "price": 69.10, "ord_dvsn": "34", "note": ""},
+            {"side": "buy",  "qty": 2, "price": 67.50, "ord_dvsn": "34", "note": ""},
+            {"side": "sell", "qty": 3, "price": 74.20, "ord_dvsn": "34", "note": "★ 쿼터매도"},
+            {"side": "sell", "qty": 9, "price": 87.38, "ord_dvsn": "00", "note": "15% 지정가"},
         ]
         _history[sid] = [
-            {"date": "7/2",  "mode": "general", "summary": "T=3.5 · 평단 $74.20 · 12주"},
-            {"date": "7/1",  "mode": "general", "summary": "T=3.0 · 평단 $75.10 · 9주"},
-            {"date": "6/30", "mode": "general", "summary": "T=2.5 · 평단 $76.80 · 6주"},
-            {"date": "6/29", "mode": "general", "summary": "T=2.0 · 평단 $77.45 · 3주"},
-            {"date": "6/26", "mode": "general", "summary": "T=1.0 · 평단 $78.20 · 2주"},
+            {
+                "date": "7/4", "mode": "general", "T": 3.5, "avg_price": 74.20, "qty": 12, "cash": 18542.30,
+                "orders": [
+                    {"side": "sell", "qty": 3,  "price": 74.20, "ord_dvsn": "34", "note": "★ 쿼터매도", "filled": True},
+                    {"side": "sell", "qty": 9,  "price": 85.33, "ord_dvsn": "00", "note": "15% 지정가", "filled": False},
+                    {"side": "buy",  "qty": 3,  "price": 72.50, "ord_dvsn": "34", "note": "★ 별지점",   "filled": True},
+                    {"side": "buy",  "qty": 3,  "price": 70.80, "ord_dvsn": "34", "note": "평단가",      "filled": True},
+                    {"side": "buy",  "qty": 2,  "price": 69.10, "ord_dvsn": "34", "note": "",            "filled": False},
+                    {"side": "buy",  "qty": 2,  "price": 67.50, "ord_dvsn": "34", "note": "",            "filled": False},
+                ],
+            },
+            {
+                "date": "7/3", "mode": "general", "T": 3.0, "avg_price": 75.10, "qty": 9, "cash": 19122.80,
+                "orders": [
+                    {"side": "sell", "qty": 2,  "price": 75.10, "ord_dvsn": "34", "note": "★ 쿼터매도", "filled": False},
+                    {"side": "sell", "qty": 7,  "price": 86.37, "ord_dvsn": "00", "note": "15% 지정가", "filled": False},
+                    {"side": "buy",  "qty": 2,  "price": 73.80, "ord_dvsn": "34", "note": "★ 별지점",   "filled": True},
+                    {"side": "buy",  "qty": 2,  "price": 72.20, "ord_dvsn": "34", "note": "평단가",      "filled": False},
+                    {"side": "buy",  "qty": 2,  "price": 70.60, "ord_dvsn": "34", "note": "",            "filled": False},
+                ],
+            },
+            {
+                "date": "7/2", "mode": "general", "T": 2.5, "avg_price": 76.80, "qty": 6, "cash": 19680.50,
+                "orders": [
+                    {"side": "sell", "qty": 1,  "price": 76.80, "ord_dvsn": "34", "note": "★ 쿼터매도", "filled": True},
+                    {"side": "sell", "qty": 5,  "price": 88.32, "ord_dvsn": "00", "note": "15% 지정가", "filled": False},
+                    {"side": "buy",  "qty": 2,  "price": 75.40, "ord_dvsn": "34", "note": "★ 별지점",   "filled": True},
+                    {"side": "buy",  "qty": 2,  "price": 73.90, "ord_dvsn": "34", "note": "평단가",      "filled": True},
+                    {"side": "buy",  "qty": 1,  "price": 72.40, "ord_dvsn": "34", "note": "",            "filled": False},
+                ],
+            },
         ]
 
 
