@@ -87,6 +87,21 @@ scheduler.add_job(
 def _startup() -> None:
     scheduler.start()
     logger.info("스케줄러 시작됨 (평일 16:50 KST 자동 실행)")
+    # 샘플 데이터 (UI 미리보기용 — API 연결 후 실제 데이터로 대체됨)
+    for sid in ["TQQQ_1", "TQQQ_2"]:
+        _latest_orders[sid] = [
+            {"side": "buy",  "qty": 3, "price": 72.50, "ord_dvsn": "34", "note": "별지점 LOC"},
+            {"side": "buy",  "qty": 3, "price": 70.80, "ord_dvsn": "34", "note": "하방 LOC #1"},
+            {"side": "buy",  "qty": 3, "price": 69.10, "ord_dvsn": "34", "note": "하방 LOC #2"},
+            {"side": "sell", "qty": 2, "price": 74.20, "ord_dvsn": "34", "note": "쿼터매도 LOC"},
+        ]
+        _history[sid] = [
+            {"date": "7/2",  "mode": "general", "summary": "T=3.5 · 평단 $74.20 · 12주"},
+            {"date": "7/1",  "mode": "general", "summary": "T=3.0 · 평단 $75.10 · 9주"},
+            {"date": "6/30", "mode": "general", "summary": "T=2.5 · 평단 $76.80 · 6주"},
+            {"date": "6/29", "mode": "general", "summary": "T=2.0 · 평단 $77.45 · 3주"},
+            {"date": "6/26", "mode": "general", "summary": "T=1.0 · 평단 $78.20 · 2주"},
+        ]
 
 
 @app.on_event("shutdown")
@@ -141,6 +156,14 @@ def _session_rows() -> list[dict]:
             buy_amt = None
         buy_amt_krw = round(buy_amt * fx["rate"]) if buy_amt and fx.get("rate") else None
 
+        # P&L 계산
+        ticker_data = mkt.get(ticker, {})
+        current_price = ticker_data.get("closes", [{}])[0].get("close") if ticker_data.get("closes") else None
+        invested = round(state.avg_price * state.qty, 2) if state.avg_price and state.qty else 0
+        unrealized_pnl = round((current_price - state.avg_price) * state.qty, 2) if current_price and state.avg_price and state.qty > 0 else None
+        unrealized_pnl_pct = round(unrealized_pnl / invested * 100, 1) if unrealized_pnl is not None and invested > 0 else None
+        portfolio_value = round(state.cash + (current_price * state.qty if current_price and state.qty else 0), 2)
+
         rows.append(
             {
                 "session_id": session_id,
@@ -173,9 +196,45 @@ def _session_rows() -> list[dict]:
                 "buy_amount_val": buy_amt,
                 "buy_amount_krw": buy_amt_krw,
                 "market": mkt.get(ticker, {}),
+                "current_price": current_price,
+                "invested": invested,
+                "unrealized_pnl": unrealized_pnl,
+                "unrealized_pnl_pct": unrealized_pnl_pct,
+                "portfolio_value": portfolio_value,
             }
         )
     return rows
+
+
+def _analysis_summary(rows: list[dict], fx: dict) -> dict:
+    total_principal = sum(r["principal"] for r in rows)
+    total_invested = round(sum(r["invested"] for r in rows), 2)
+    total_cash = round(sum(r["cash"] for r in rows), 2)
+    total_unrealized = round(sum(r["unrealized_pnl"] for r in rows if r.get("unrealized_pnl") is not None), 2)
+    total_portfolio = round(sum(r["portfolio_value"] for r in rows), 2)
+    invest_pct = round(total_invested / total_principal * 100, 1) if total_principal > 0 else 0.0
+    unrealized_pct = round(total_unrealized / total_invested * 100, 1) if total_invested > 0 else 0.0
+    total_delta = round(total_portfolio - total_principal, 2)
+    rate = fx.get("rate")
+    return {
+        "total_principal": round(total_principal, 2),
+        "total_invested": total_invested,
+        "total_cash": total_cash,
+        "total_unrealized": total_unrealized,
+        "total_unrealized_pct": unrealized_pct,
+        "total_portfolio": total_portfolio,
+        "total_delta": total_delta,
+        "invest_pct": invest_pct,
+        "total_unrealized_krw": round(total_unrealized * rate) if rate else None,
+        "rate": rate,
+    }
+
+
+@app.get("/debug-market")
+def debug_market():
+    from fastapi.responses import JSONResponse
+    rows = _session_rows()
+    return JSONResponse([{"session_id": r["session_id"], "market": r["market"]} for r in rows])
 
 
 @app.get("/")
@@ -185,7 +244,8 @@ def dashboard(request: Request):
         return RedirectResponse(url="/setup")
     fx = get_exchange_rate()
     fear_greed = get_fear_greed()
-    return templates.TemplateResponse(request, "dashboard.html", {"rows": rows, "fx": fx, "fear_greed": fear_greed})
+    analysis = _analysis_summary(rows, fx)
+    return templates.TemplateResponse(request, "dashboard.html", {"rows": rows, "fx": fx, "fear_greed": fear_greed, "analysis": analysis})
 
 
 @app.post("/run")

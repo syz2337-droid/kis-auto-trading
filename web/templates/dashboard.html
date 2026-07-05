@@ -4,8 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>무한매수법 4.0</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <style>
     /* ===================== DESIGN TOKENS ===================== */
     :root {
@@ -279,7 +278,7 @@
     .fg-bar-wrap { position: relative; height: 10px; border-radius: 999px; overflow: visible; background: linear-gradient(to right, #ef4444, #f97316, #eab308, #84cc16, #22c55e); margin-bottom: 0.375rem; }
     .fg-needle { position: absolute; top: -4px; width: 4px; height: 18px; background: var(--t1); border-radius: 2px; transform: translateX(-50%); box-shadow: 0 0 6px rgba(0,0,0,0.5); transition: left 0.5s; }
     .fg-bar-labels { display: flex; justify-content: space-between; font-size: 0.55rem; color: var(--t4); margin-bottom: 0.75rem; }
-    .fg-chart-wrap { height: 80px; }
+    .fg-chart-wrap { height: 160px; }
 
     /* 새 사이클 시작 */
     .new-cycle-section { background: color-mix(in srgb, var(--acc) 8%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--acc) 25%, var(--border)); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
@@ -301,6 +300,38 @@
       box-shadow: 0 8px 24px color-mix(in srgb, var(--acc) 45%, transparent), 0 2px 6px rgba(0,0,0,0.3);
     }
     .fab:active { transform: scale(0.96); }
+  /* ===== 분석 탭 서브탭 ===== */
+  .analysis-sub-tabs { display:flex; gap:0.25rem; margin-bottom:1rem; overflow-x:auto; scrollbar-width:none; }
+  .analysis-sub-tabs::-webkit-scrollbar { display:none; }
+  .analysis-sub-btn { flex-shrink:0; padding:0.35rem 0.75rem; font-size:0.75rem; font-weight:600; border-radius:999px; border:1px solid var(--border); color:var(--t3); background:var(--bg3); transition:all 0.15s; cursor:pointer; }
+  .analysis-sub-btn.active { color:var(--acc-s); background:color-mix(in srgb,var(--acc) 12%,transparent); border-color:color-mix(in srgb,var(--acc) 30%,transparent); }
+  /* 손익 히어로 카드 */
+  .pnl-hero { border-radius:1.25rem; padding:1.125rem; margin-bottom:0.625rem; }
+  .pnl-hero.positive { background:linear-gradient(135deg,color-mix(in srgb,var(--ok) 18%,var(--bg2)),color-mix(in srgb,var(--ok) 6%,var(--bg2))); border:1px solid color-mix(in srgb,var(--ok) 25%,var(--border)); }
+  .pnl-hero.negative { background:linear-gradient(135deg,color-mix(in srgb,var(--err) 18%,var(--bg2)),color-mix(in srgb,var(--err) 6%,var(--bg2))); border:1px solid color-mix(in srgb,var(--err) 25%,var(--border)); }
+  .pnl-hero.neutral { background:var(--bg2); border:1px solid var(--border); }
+  .pnl-hero-title { font-size:0.78rem; font-weight:600; color:var(--t2); margin-bottom:0.125rem; }
+  .pnl-hero-badge { font-size:0.65rem; color:var(--t3); }
+  .pnl-hero-num { font-family:var(--mono); font-size:2rem; font-weight:700; line-height:1.1; }
+  .pnl-hero-num.ok { color:var(--ok); }
+  .pnl-hero-num.err { color:var(--err); }
+  .pnl-hero-num.neutral { color:var(--t2); }
+  .pnl-hero-pct { font-size:0.88rem; margin-left:0.4rem; }
+  .pnl-hero-krw { font-size:0.68rem; color:var(--t3); font-family:var(--mono); margin:0.2rem 0 0.875rem; }
+  .pnl-hero-row { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; padding-top:0.75rem; border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent); }
+  .pnl-hero-item-label { font-size:0.62rem; color:var(--t4); margin-bottom:0.2rem; }
+  .pnl-hero-item-value { font-family:var(--mono); font-size:0.88rem; font-weight:700; color:var(--t1); }
+  /* 세션별 손익 리스트 */
+  .session-pnl-row { display:flex; justify-content:space-between; align-items:center; background:var(--bg3); border-radius:0.625rem; padding:0.6rem 0.875rem; margin-bottom:0.3rem; }
+  .session-pnl-left { min-width:0; }
+  .session-pnl-name { font-size:0.8rem; font-weight:600; color:var(--t1); }
+  .session-pnl-meta { font-size:0.62rem; color:var(--t4); margin-top:0.1rem; }
+  .session-pnl-val { font-family:var(--mono); font-size:0.85rem; font-weight:700; white-space:nowrap; margin-left:0.5rem; }
+  /* 월별 차트 placeholder */
+  .monthly-placeholder { background:var(--bg3); border-radius:0.75rem; height:100px; display:flex; align-items:center; justify-content:center; font-size:0.75rem; color:var(--t4); margin-top:0.5rem; }
+  /* 완료 사이클 placeholder */
+  .completed-placeholder { background:var(--bg3); border-radius:0.75rem; padding:1rem; text-align:center; font-size:0.75rem; color:var(--t4); }
+
   </style>
 </head>
 <body>
@@ -519,10 +550,22 @@
           <div class="ohlc-col">
             <div class="ohlc-col-label">프리</div>
             {% if o.pre %}
-            <div class="ohlc-price-top">${{ o.pre }}</div>
-            <div class="bar-wrap">
-              <div class="bar-line" style="background:var(--acc); bottom:30%; top:30%;"></div>
+              {% set p = o.pre %}
+              {% set p_rng = p.high - p.low %}
+              {% if p_rng > 0 %}
+                {% set p_o_pct = (p.open - p.low) / p_rng * 100 %}
+                {% set p_c_pct = (p.close - p.low) / p_rng * 100 %}
+                {% set p_body_bot = p_o_pct if p_o_pct < p_c_pct else p_c_pct %}
+                {% set p_body_h = ((p_c_pct - p_o_pct) | abs) %}
+              {% else %}
+                {% set p_o_pct = 50 %}{% set p_c_pct = 50 %}{% set p_body_bot = 48 %}{% set p_body_h = 4 %}
+              {% endif %}
+            <div class="ohlc-price-top">${{ p.high }}</div>
+            <div class="candle-wrap">
+              <div class="candle-wick" style="background:var(--acc); bottom:0; top:0;"></div>
+              <div class="candle-body" style="background:var(--acc); bottom:{{ p_body_bot }}%; height:{{ [p_body_h, 4] | max }}%;"></div>
             </div>
+            <div class="ohlc-price-bot">${{ p.low }}</div>
             {% else %}
             <div class="bar-wrap" style="display:flex;align-items:center;justify-content:center;">
               <span style="font-size:0.6rem;color:var(--t4);">–</span>
@@ -556,10 +599,22 @@
           <div class="ohlc-col">
             <div class="ohlc-col-label">애프터</div>
             {% if o.post %}
-            <div class="ohlc-price-top">${{ o.post }}</div>
-            <div class="bar-wrap">
-              <div class="bar-line" style="background:var(--rev); bottom:30%; top:30%;"></div>
+              {% set q = o.post %}
+              {% set q_rng = q.high - q.low %}
+              {% if q_rng > 0 %}
+                {% set q_o_pct = (q.open - q.low) / q_rng * 100 %}
+                {% set q_c_pct = (q.close - q.low) / q_rng * 100 %}
+                {% set q_body_bot = q_o_pct if q_o_pct < q_c_pct else q_c_pct %}
+                {% set q_body_h = ((q_c_pct - q_o_pct) | abs) %}
+              {% else %}
+                {% set q_o_pct = 50 %}{% set q_c_pct = 50 %}{% set q_body_bot = 48 %}{% set q_body_h = 4 %}
+              {% endif %}
+            <div class="ohlc-price-top">${{ q.high }}</div>
+            <div class="candle-wrap">
+              <div class="candle-wick" style="background:var(--rev); bottom:0; top:0;"></div>
+              <div class="candle-body" style="background:var(--rev); bottom:{{ q_body_bot }}%; height:{{ [q_body_h, 4] | max }}%;"></div>
             </div>
+            <div class="ohlc-price-bot">${{ q.low }}</div>
             {% else %}
             <div class="bar-wrap" style="display:flex;align-items:center;justify-content:center;">
               <span style="font-size:0.6rem;color:var(--t4);">–</span>
@@ -569,58 +624,12 @@
         </div>
         <div class="ohlc-footer">
           <span>종가 ${{ o.close }}</span>
+          {% if o.post %}<span>애프터 종가 ${{ o.post.close }}</span>{% endif %}
           <span>시가 ${{ o.open }}</span>
         </div>
       </div>
         {% endif %}
       {% endif %}
-
-      <!-- 오늘의 주문 -->
-      <div class="orders-section">
-        <div class="orders-head">
-          <span class="section-title">오늘의 주문</span>
-          <span style="font-size:0.72rem;color:var(--t3);">{{ row.sell_orders|length + row.buy_orders|length }}건</span>
-        </div>
-        <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
-        {% for ord in row.sell_orders %}
-        <div class="order-row sell">
-          <div><span class="order-label">{{ ord.label }}</span><span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span></div>
-          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
-        </div>
-        {% else %}
-        <div class="empty-note">매도 주문 없음</div>
-        {% endfor %}
-        <div class="order-group-head buy-head orders-gap"><span class="order-dot buy-dot"></span>매수</div>
-        {% for ord in row.buy_orders %}
-        <div class="order-row buy">
-          <div><span class="order-label">{{ ord.label }}</span><span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span></div>
-          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
-        </div>
-        {% else %}
-        <div class="empty-note">매수 주문 없음 (실행 전이거나 종료 상태)</div>
-        {% endfor %}
-      </div>
-
-      <!-- 거래 히스토리 -->
-      <div class="history-section">
-        <div class="orders-head">
-          <span class="section-title">거래 히스토리</span>
-          <span style="font-size:0.72rem;color:var(--t3);">{{ row.history|length }}건</span>
-        </div>
-        {% for h in row.history %}
-        <div class="history-row">
-          <span><span class="h-date">{{ h.date }}</span>{{ "리버스" if h.mode == "reverse" else "일반" }}</span>
-          <span class="h-summary">{{ h.summary }}</span>
-        </div>
-        {% else %}
-        <div class="empty-note">아직 실행 기록이 없습니다.</div>
-        {% endfor %}
-      </div>
-
-    </div><!-- /현재 탭 -->
-
-    <!-- ===== 분석 탭 ===== -->
-    <div class="inner-panel" id="analysis-{{ row.session_id }}" style="display:none;">
 
       <!-- 종가 추이 차트 -->
       <div class="chart-section">
@@ -638,18 +647,9 @@
           {{ "%+.1f%%"|format(s.change_pct) }}
         </div>
         <div class="chart-stats">
-          <div class="chart-stat">
-            <div class="chart-stat-label">1년 최저</div>
-            <div class="chart-stat-value">${{ s.min }}</div>
-          </div>
-          <div class="chart-stat">
-            <div class="chart-stat-label">현재</div>
-            <div class="chart-stat-value" style="color:var(--acc-s);">${{ s.current }}</div>
-          </div>
-          <div class="chart-stat">
-            <div class="chart-stat-label">1년 최고</div>
-            <div class="chart-stat-value">${{ s.max }}</div>
-          </div>
+          <div class="chart-stat"><div class="chart-stat-label">1년 최저</div><div class="chart-stat-value">${{ s.min }}</div></div>
+          <div class="chart-stat"><div class="chart-stat-label">현재</div><div class="chart-stat-value" style="color:var(--acc-s);">${{ s.current }}</div></div>
+          <div class="chart-stat"><div class="chart-stat-label">1년 최고</div><div class="chart-stat-value">${{ s.max }}</div></div>
         </div>
         {% endif %}
         <div class="chart-canvas-wrap">
@@ -712,6 +712,318 @@
       </div>
       {% endif %}
 
+      <!-- 오늘의 주문 -->
+      <div class="orders-section">
+        <div class="orders-head">
+          <span class="section-title">오늘의 주문</span>
+          <span style="font-size:0.72rem;color:var(--t3);">{{ row.sell_orders|length + row.buy_orders|length }}건</span>
+        </div>
+        <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
+        {% for ord in row.sell_orders %}
+        <div class="order-row sell">
+          <div><span class="order-label">{{ ord.label }}</span><span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span></div>
+          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+        </div>
+        {% else %}
+        <div class="empty-note">매도 주문 없음</div>
+        {% endfor %}
+        <div class="order-group-head buy-head orders-gap"><span class="order-dot buy-dot"></span>매수</div>
+        {% for ord in row.buy_orders %}
+        <div class="order-row buy">
+          <div><span class="order-label">{{ ord.label }}</span><span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span></div>
+          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+        </div>
+        {% else %}
+        <div class="empty-note">매수 주문 없음 (실행 전이거나 종료 상태)</div>
+        {% endfor %}
+      </div>
+
+      <!-- 거래 히스토리 -->
+      <div class="history-section">
+        <div class="orders-head">
+          <span class="section-title">거래 히스토리</span>
+          <span style="font-size:0.72rem;color:var(--t3);">{{ row.history|length }}건</span>
+        </div>
+        {% for h in row.history %}
+        <div class="history-row">
+          <span><span class="h-date">{{ h.date }}</span>{{ "리버스" if h.mode == "reverse" else "일반" }}</span>
+          <span class="h-summary">{{ h.summary }}</span>
+        </div>
+        {% else %}
+        <div class="empty-note">아직 실행 기록이 없습니다.</div>
+        {% endfor %}
+      </div>
+
+    </div><!-- /현재 탭 -->
+
+    <!-- ===== 분석 탭 ===== -->
+    <div class="inner-panel" id="analysis-{{ row.session_id }}" style="display:none;">
+
+      <!-- 서브탭 바 -->
+      <div class="analysis-sub-tabs" id="analysis-subtabs-{{ row.session_id }}">
+        <button class="analysis-sub-btn active"
+          onclick="switchAnalysisSub('{{ row.session_id }}','all',this)">전체 세션</button>
+        {% for r in rows %}
+        <button class="analysis-sub-btn"
+          onclick="switchAnalysisSub('{{ row.session_id }}','{{ r.session_id }}',this)">{{ r.label }}</button>
+        {% endfor %}
+      </div>
+
+      <!-- ── 전체 세션 뷰 ── -->
+      <div id="aview-{{ row.session_id }}-all">
+
+        <!-- 총 미실현 손익 히어로 -->
+        {% set hero_cls = 'positive' if analysis.total_unrealized > 0 else ('negative' if analysis.total_unrealized < 0 else 'neutral') %}
+        {% set num_cls  = 'ok'       if analysis.total_unrealized > 0 else ('err'      if analysis.total_unrealized < 0 else 'neutral') %}
+        <div class="pnl-hero {{ hero_cls }}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem;">
+            <div class="pnl-hero-title">총 미실현 손익</div>
+            <div class="pnl-hero-badge">{{ rows|length }}개 세션</div>
+          </div>
+          <div>
+            <span class="pnl-hero-num {{ num_cls }}">{{ "{:+,.2f}".format(analysis.total_unrealized) }}</span>
+            {% if analysis.total_unrealized_pct is not none %}
+            <span class="pnl-hero-pct {{ num_cls }}">{{ "%+.1f%%"|format(analysis.total_unrealized_pct) }}</span>
+            {% endif %}
+          </div>
+          {% if analysis.total_unrealized_krw is not none %}
+          <div class="pnl-hero-krw">≈ ₩{{ "{:,.0f}".format(analysis.total_unrealized_krw) }}</div>
+          {% endif %}
+          <div class="pnl-hero-row">
+            <div>
+              <div class="pnl-hero-item-label">총 원금</div>
+              <div class="pnl-hero-item-value">${{ "{:,.0f}".format(analysis.total_principal) }}</div>
+            </div>
+            <div>
+              <div class="pnl-hero-item-label">총 평가 자산</div>
+              <div class="pnl-hero-item-value">${{ "{:,.2f}".format(analysis.total_portfolio) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 자산 현황 3열 -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.75rem;">
+            <span class="section-title">자산 현황</span>
+          </div>
+          <div class="stat-grid cols-3" style="margin-bottom:0.75rem;">
+            <div class="stat">
+              <div class="stat-label">총 원금</div>
+              <div class="stat-value" style="font-size:0.95rem;">${{ "{:,.0f}".format(analysis.total_principal) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">투자 중</div>
+              <div class="stat-value acc" style="font-size:0.95rem;">${{ "{:,.0f}".format(analysis.total_invested) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">잔금 합계</div>
+              <div class="stat-value" style="font-size:0.95rem;">${{ "{:,.0f}".format(analysis.total_cash) }}</div>
+            </div>
+          </div>
+          {% if analysis.total_principal > 0 %}
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--t3);margin-bottom:0.35rem;">
+              <span>투자 비율</span>
+              <span style="font-family:var(--mono);font-weight:600;">{{ analysis.invest_pct }}%</span>
+            </div>
+            <div style="background:var(--bg4);border-radius:999px;height:6px;overflow:hidden;">
+              <div style="background:linear-gradient(90deg,var(--info),var(--acc-s));width:{{ [analysis.invest_pct,100]|min }}%;height:100%;border-radius:999px;transition:width 0.4s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--t4);margin-top:0.35rem;font-family:var(--mono);">
+              <span>투자 ${{ "{:,.0f}".format(analysis.total_invested) }}</span>
+              <span>잔금 ${{ "{:,.0f}".format(analysis.total_cash) }}</span>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- 월별 실현 손익 (placeholder) -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.5rem;">
+            <span class="section-title">월별 실현 손익</span>
+          </div>
+          <div class="monthly-placeholder">KIS API 연결 후 자동 집계됩니다</div>
+        </div>
+
+        <!-- 세션별 손익 리스트 -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.75rem;">
+            <span class="section-title">세션별 현황</span>
+          </div>
+          {% for r in rows %}
+          {% set spct = r.unrealized_pnl_pct %}
+          {% set spnl = r.unrealized_pnl %}
+          <div class="session-pnl-row">
+            <div class="session-pnl-left">
+              <div class="session-pnl-name">{{ r.label }}</div>
+              <div class="session-pnl-meta">
+                원금 ${{ "{:,.0f}".format(r.principal) }}
+                · T={{ r.T }}/{{ r.division }}
+                {% if r.current_price %}· 현재가 ${{ r.current_price }}{% endif %}
+              </div>
+            </div>
+            {% if spnl is not none %}
+            <div class="session-pnl-val {{ 'ok' if spnl >= 0 else 'err' }}">
+              {{ "%+,.2f"|format(spnl) }}
+              {% if spct is not none %}<span style="font-size:0.7rem;font-weight:400;">({{ "%+.1f%%"|format(spct) }})</span>{% endif %}
+            </div>
+            {% else %}
+            <div class="session-pnl-val" style="color:var(--t4);">매수 전</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- 완료 사이클 -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.5rem;">
+            <span class="section-title">완료 사이클</span>
+          </div>
+          <div class="completed-placeholder">완료된 사이클이 없습니다 — KIS API 연결 후 자동 집계</div>
+        </div>
+
+      </div><!-- /aview all -->
+
+      <!-- ── 개별 세션 뷰 ── -->
+      {% for r in rows %}
+      <div id="aview-{{ row.session_id }}-{{ r.session_id }}" style="display:none;">
+
+        <!-- 개별 미실현 손익 히어로 -->
+        {% set s_hero_cls = 'positive' if r.unrealized_pnl is not none and r.unrealized_pnl > 0 else ('negative' if r.unrealized_pnl is not none and r.unrealized_pnl < 0 else 'neutral') %}
+        {% set s_num_cls  = 'ok'       if r.unrealized_pnl is not none and r.unrealized_pnl > 0 else ('err'      if r.unrealized_pnl is not none and r.unrealized_pnl < 0 else 'neutral') %}
+        <div class="pnl-hero {{ s_hero_cls }}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.25rem;">
+            <div class="pnl-hero-title">미실현 손익 — {{ r.label }}</div>
+            <span class="phase-chip {{ r.phase_cls }}" style="font-size:0.62rem;">{{ r.phase_label }}</span>
+          </div>
+          {% if r.unrealized_pnl is not none %}
+          <div>
+            <span class="pnl-hero-num {{ s_num_cls }}">{{ "{:+,.2f}".format(r.unrealized_pnl) }}</span>
+            {% if r.unrealized_pnl_pct is not none %}
+            <span class="pnl-hero-pct {{ s_num_cls }}">{{ "%+.1f%%"|format(r.unrealized_pnl_pct) }}</span>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="pnl-hero-num neutral">–</div>
+          {% endif %}
+          <div class="pnl-hero-row">
+            <div>
+              <div class="pnl-hero-item-label">원금</div>
+              <div class="pnl-hero-item-value">${{ "{:,.0f}".format(r.principal) }}</div>
+            </div>
+            <div>
+              <div class="pnl-hero-item-label">평가 자산</div>
+              <div class="pnl-hero-item-value">${{ "{:,.2f}".format(r.portfolio_value) }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 자산 현황 -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.75rem;">
+            <span class="section-title">자산 현황</span>
+            {% if r.current_price %}
+            <span style="font-size:0.72rem;color:var(--t3);font-family:var(--mono);">현재가 ${{ r.current_price }}</span>
+            {% endif %}
+          </div>
+          <div class="stat-grid cols-2" style="margin-bottom:0.75rem;">
+            <div class="stat">
+              <div class="stat-label">원금</div>
+              <div class="stat-value">${{ "{:,.0f}".format(r.principal) }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">투자금</div>
+              <div class="stat-value">${{ "{:,.2f}".format(r.invested) }}</div>
+              {% if r.avg_price and r.qty %}
+              <div class="stat-sub">${{ "%.2f"|format(r.avg_price) }} × {{ r.qty }}주</div>
+              {% endif %}
+            </div>
+            <div class="stat">
+              <div class="stat-label">잔금</div>
+              <div class="stat-value">${{ "{:,.2f}".format(r.cash) }}</div>
+            </div>
+            {% if r.current_price and r.qty > 0 %}
+            <div class="stat">
+              <div class="stat-label">현재 평가액</div>
+              <div class="stat-value acc">${{ "{:,.2f}".format(r.current_price * r.qty) }}</div>
+            </div>
+            {% else %}
+            <div class="stat">
+              <div class="stat-label">현재 평가액</div>
+              <div class="stat-value" style="color:var(--t4);">–</div>
+            </div>
+            {% endif %}
+          </div>
+          {% if r.principal > 0 %}
+            {% set r_invest_pct = (r.invested / r.principal * 100) | round(1) %}
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--t3);margin-bottom:0.35rem;">
+              <span>투자 비율</span><span style="font-family:var(--mono);font-weight:600;">{{ r_invest_pct }}%</span>
+            </div>
+            <div style="background:var(--bg4);border-radius:999px;height:6px;overflow:hidden;">
+              <div style="background:linear-gradient(90deg,var(--info),var(--acc-s));width:{{ [r_invest_pct,100]|min }}%;height:100%;border-radius:999px;transition:width 0.4s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--t4);margin-top:0.35rem;font-family:var(--mono);">
+              <span>투자 ${{ "{:,.0f}".format(r.invested) }}</span>
+              <span>잔금 ${{ "{:,.0f}".format(r.cash) }}</span>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- 진행 현황 -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.75rem;">
+            <span class="section-title">진행 현황</span>
+            <span class="phase-chip {{ r.phase_cls }}">{{ r.phase_label }}</span>
+          </div>
+          <div class="stat-grid cols-2">
+            <div class="stat">
+              <div class="stat-label">T값</div>
+              <div class="stat-value">{{ r.T }} / {{ r.division }}</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">진행률</div>
+              <div class="stat-value acc">{{ r.progress_pct }}%</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">목표 수익률</div>
+              <div class="stat-value ok">{{ r.target_profit_pct }}%</div>
+            </div>
+            <div class="stat">
+              <div class="stat-label">마지막 실행</div>
+              <div class="stat-value" style="font-size:0.78rem;">{{ r.last_run_date }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 완료 사이클 -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.5rem;">
+            <span class="section-title">완료 사이클</span>
+          </div>
+          <div class="completed-placeholder">완료된 사이클이 없습니다 — KIS API 연결 후 자동 집계</div>
+        </div>
+
+        <!-- 거래 히스토리 -->
+        {% if r.history %}
+        <div class="history-section">
+          <div class="orders-head">
+            <span class="section-title">거래 히스토리</span>
+            <span style="font-size:0.72rem;color:var(--t3);">{{ r.history|length }}건</span>
+          </div>
+          {% for h in r.history %}
+          <div class="history-row">
+            <span><span class="h-date">{{ h.date }}</span>{{ "리버스" if h.mode == "reverse" else "일반" }}</span>
+            <span class="h-summary">{{ h.summary }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+      </div><!-- /aview session {{ r.session_id }} -->
+      {% endfor %}
+
     </div><!-- /분석 탭 -->
 
     <!-- 차트 데이터 JSON (숨김) -->
@@ -767,6 +1079,12 @@ function switchSession(id) {
   const tab = document.querySelector(`[data-session="${id}"]`);
   if (tab) tab.classList.add('active');
   localStorage.setItem('activeSession', id);
+  // 현재 탭이 활성 상태면 차트 초기화
+  const innerEl = document.getElementById('current-' + id);
+  if (innerEl && innerEl.style.display !== 'none') {
+    initPriceChart(id);
+    initFgChart(id);
+  }
 }
 
 function restoreSession() {
@@ -785,9 +1103,9 @@ function switchInner(btn, tabId) {
   panel.querySelectorAll('.inner-panel').forEach(p => p.style.display = 'none');
   const target = document.getElementById(tabId);
   if (target) target.style.display = 'block';
-  // 분석 탭 차트 초기화
-  if (tabId.startsWith('analysis-')) {
-    const sid = tabId.replace('analysis-', '');
+  // 현재 탭 전환 시 차트 초기화
+  if (tabId.startsWith('current-')) {
+    const sid = tabId.replace('current-', '');
     initPriceChart(sid);
     initFgChart(sid);
   }
@@ -812,6 +1130,35 @@ function toggleSettings(sid) {
   el.classList.toggle('open');
 }
 
+/* 툴팁 Y 고정 포지셔너 */
+Chart.Tooltip.positioners.topFixed = function(elements, pos) {
+  const base = Chart.Tooltip.positioners.average.call(this, elements, pos);
+  if (!base) return false;
+  return { x: pos.x, y: this.chart.chartArea.top + 8 };
+};
+
+/* 수직 크로스헤어 플러그인 */
+const crosshairPlugin = {
+  id: 'crosshair',
+  afterDraw(chart) {
+    const active = chart.tooltip?._active;
+    if (!active || !active.length) return;
+    const x = active[0].element.x;
+    const { top, bottom } = chart.chartArea;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x, bottom);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(150,150,150,0.4)';
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.restore();
+  }
+};
+Chart.register(crosshairPlugin);
+
 /* ===================== PRICE CHART ===================== */
 function initPriceChart(sid) {
   if (charts[sid]) return;
@@ -823,8 +1170,20 @@ function initPriceChart(sid) {
   chartData[sid] = raw;
 
   const ctx = el.getContext('2d');
-  const color = getComputedStyle(document.documentElement).getPropertyValue('--chart-line').trim();
-  const fill = getComputedStyle(document.documentElement).getPropertyValue('--chart-fill').trim();
+  const _cs = getComputedStyle(document.documentElement);
+  const color = _cs.getPropertyValue('--chart-line').trim();
+  const fill = _cs.getPropertyValue('--chart-fill').trim();
+  const axisColor = _cs.getPropertyValue('--t4').trim() || '#888';
+  const gridColor = _cs.getPropertyValue('--border').trim() || 'rgba(128,128,128,0.15)';
+
+  const makeGradient = (chart) => {
+    const { top, bottom } = chart.chartArea || { top: 0, bottom: el.height };
+    const g = ctx.createLinearGradient(0, top, 0, bottom);
+    g.addColorStop(0,   'rgba(16,185,129,0.35)');
+    g.addColorStop(0.6, 'rgba(16,185,129,0.08)');
+    g.addColorStop(1,   'rgba(16,185,129,0)');
+    return g;
+  };
 
   charts[sid] = new Chart(ctx, {
     type: 'line',
@@ -832,28 +1191,51 @@ function initPriceChart(sid) {
       labels: raw.dates,
       datasets: [{
         data: raw.closes,
-        borderColor: color,
-        borderWidth: 1.5,
+        borderColor: '#10b981',
+        borderWidth: 2,
         pointRadius: 0,
         fill: true,
-        backgroundColor: (ctx2) => {
-          const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, ctx2.chart.height);
-          g.addColorStop(0, fill);
-          g.addColorStop(1, 'rgba(0,0,0,0)');
-          return g;
-        },
+        backgroundColor: (ctx2) => makeGradient(ctx2.chart),
         tension: 0.3,
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
-      plugins: { legend: { display: false }, tooltip: {
-        mode: 'index', intersect: false,
-        callbacks: { label: (i) => ' $' + i.parsed.y.toFixed(2) },
-      }},
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          position: 'topFixed',
+          animation: { duration: 100 },
+          backgroundColor: 'rgba(12,12,20,0.92)',
+          borderColor: 'rgba(255,255,255,0.1)',
+          borderWidth: 1,
+          padding: 12,
+          cornerRadius: 10,
+          titleColor: 'rgba(255,255,255,0.45)',
+          titleFont: { size: 11 },
+          bodyColor: '#10b981',
+          bodyFont: { size: 14, weight: '700' },
+          callbacks: {
+            title: (items) => items[0]?.label || '',
+            label: (i) => ' $' + i.parsed.y.toFixed(2),
+          },
+        },
+      },
       scales: {
-        x: { display: false },
-        y: { display: false, grace: '5%' },
+        x: {
+          display: true,
+          ticks: { maxTicksLimit: 6, color: axisColor, font: { size: 10 }, maxRotation: 0 },
+          grid: { display: false },
+          border: { display: false },
+        },
+        y: {
+          display: true,
+          position: 'left',
+          ticks: { maxTicksLimit: 4, color: axisColor, font: { size: 10 }, callback: v => '$' + v },
+          grid: { color: gridColor },
+          border: { display: false },
+        },
       },
     }
   });
@@ -881,19 +1263,17 @@ function updateChartColors(sid) {
   const chart = charts[sid];
   if (!chart) return;
   const style = getComputedStyle(document.documentElement);
-  const color = style.getPropertyValue('--chart-line').trim();
-  const fill = style.getPropertyValue('--chart-fill').trim();
-  chart.data.datasets[0].borderColor = color;
-  chart.data.datasets[0].backgroundColor = (ctx2) => {
-    const g = ctx2.chart.ctx.createLinearGradient(0, 0, 0, ctx2.chart.height);
-    g.addColorStop(0, fill); g.addColorStop(1, 'rgba(0,0,0,0)');
-    return g;
-  };
+  const axisColor = style.getPropertyValue('--t4').trim() || '#888';
+  const gridColor = style.getPropertyValue('--border').trim() || 'rgba(128,128,128,0.15)';
+  chart.options.scales.x.ticks.color = axisColor;
+  chart.options.scales.y.ticks.color = axisColor;
+  chart.options.scales.y.grid.color = gridColor;
   chart.update('none');
-  // F&G 차트
   const fg = fgCharts[sid];
   if (fg) {
-    fg.data.datasets[0].borderColor = color;
+    fg.options.scales.x.ticks.color = axisColor;
+    fg.options.scales.y.ticks.color = axisColor;
+    fg.options.scales.y.grid.color = gridColor;
     fg.update('none');
   }
 }
@@ -910,38 +1290,130 @@ function initFgChart(sid) {
 
   const style = getComputedStyle(document.documentElement);
   const color = style.getPropertyValue('--chart-line').trim();
+  const fgAxisColor = style.getPropertyValue('--t4').trim() || '#888';
+  const fgGridColor = style.getPropertyValue('--border').trim() || 'rgba(128,128,128,0.15)';
 
-  fgCharts[sid] = new Chart(el.getContext('2d'), {
+  const ctx = el.getContext('2d');
+
+  // Y값 기반 선 색상 (25 이하 빨강, 45 이하 주황, 55 이하 노랑, 75 이하 연두, 초록)
+  function fgColor(v) {
+    if (v <= 25) return 'rgb(239,68,68)';
+    if (v <= 45) return 'rgb(249,115,22)';
+    if (v <= 55) return 'rgb(234,179,8)';
+    if (v <= 75) return 'rgb(132,204,22)';
+    return 'rgb(34,197,94)';
+  }
+
+  // Y축 그라데이션 배경 (위=초록, 아래=빨강)
+  function makeFgGradient(chart) {
+    const { top, bottom } = chart.chartArea || { top: 0, bottom: el.height };
+    const g = ctx.createLinearGradient(0, top, 0, bottom);
+    g.addColorStop(0,    'rgba(34,197,94,0.25)');
+    g.addColorStop(0.25, 'rgba(132,204,22,0.15)');
+    g.addColorStop(0.5,  'rgba(234,179,8,0.12)');
+    g.addColorStop(0.75, 'rgba(249,115,22,0.15)');
+    g.addColorStop(1,    'rgba(239,68,68,0.25)');
+    return g;
+  }
+
+  const values = raw.map(d => d.value);
+
+  fgCharts[sid] = new Chart(ctx, {
     type: 'line',
     data: {
       labels: raw.map(d => d.date),
       datasets: [{
-        data: raw.map(d => d.value),
-        borderColor: color,
-        borderWidth: 1.5,
+        data: values,
+        borderColor: values.map(fgColor),
+        borderWidth: 1.8,
         pointRadius: 0,
-        fill: false,
+        fill: true,
+        backgroundColor: function(context) {
+          const chart = context.chart;
+          if (!chart.chartArea) return 'transparent';
+          return makeFgGradient(chart);
+        },
         tension: 0.3,
+        segment: { borderColor: ctx => fgColor(ctx.p1.parsed.y) },
       }]
     },
     options: {
       responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false, axis: 'x' },
       plugins: { legend: { display: false }, tooltip: {
-        mode: 'index', intersect: false,
-        callbacks: { label: (i) => ' ' + i.parsed.y },
+        position: 'topFixed',
+        animation: { duration: 100 },
+        backgroundColor: 'rgba(12,12,20,0.92)',
+        borderColor: 'rgba(255,255,255,0.1)',
+        borderWidth: 1,
+        padding: 12,
+        cornerRadius: 10,
+        titleColor: 'rgba(255,255,255,0.45)',
+        titleFont: { size: 11 },
+        bodyFont: { size: 14, weight: '700' },
+        callbacks: {
+          title: (items) => items[0]?.label || '',
+          label: (i) => {
+            const v = i.parsed.y;
+            let lbl = v <= 25 ? '극단적 공포' : v <= 45 ? '공포' : v <= 55 ? '중립' : v <= 75 ? '탐욕' : '극단적 탐욕';
+            return ` ${v} · ${lbl}`;
+          },
+          labelColor: (i) => {
+            const v = i.parsed.y;
+            const c = v <= 25 ? '#ef4444' : v <= 45 ? '#f97316' : v <= 55 ? '#eab308' : v <= 75 ? '#84cc16' : '#22c55e';
+            return { borderColor: c, backgroundColor: c };
+          },
+        },
       }},
       scales: {
-        x: { display: false },
-        y: { min: 0, max: 100, display: false },
+        x: {
+          display: true,
+          ticks: { maxTicksLimit: 5, color: fgAxisColor, font: { size: 10 }, maxRotation: 0 },
+          grid: { display: false },
+          border: { display: false },
+        },
+        y: {
+          min: 0, max: 100,
+          display: true,
+          position: 'left',
+          ticks: { maxTicksLimit: 4, color: fgAxisColor, font: { size: 10 }, stepSize: 25 },
+          grid: { color: fgGridColor },
+          border: { display: false },
+        },
       },
     }
   });
+}
+
+/* ===================== ANALYSIS SUB-TABS ===================== */
+function switchAnalysisSub(panelSid, subSid, btn) {
+  const subTabContainer = document.getElementById('analysis-subtabs-' + panelSid);
+  if (subTabContainer) {
+    subTabContainer.querySelectorAll('.analysis-sub-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+  const panel = document.getElementById('analysis-' + panelSid);
+  if (!panel) return;
+  panel.querySelectorAll('[id^="aview-' + panelSid + '-"]').forEach(el => el.style.display = 'none');
+  const target = document.getElementById('aview-' + panelSid + '-' + subSid);
+  if (target) target.style.display = 'block';
 }
 
 /* ===================== INIT ===================== */
 restoreTheme();
 restoreSession();
 restoreInnerTabs();
+// 페이지 로드 후 활성 세션의 현재 탭 차트 초기화
+(function() {
+  const sid = localStorage.getItem('activeSession') ||
+    document.querySelector('.session-tab')?.dataset.session;
+  if (!sid) return;
+  const el = document.getElementById('current-' + sid);
+  if (el && el.style.display !== 'none') {
+    initPriceChart(sid);
+    initFgChart(sid);
+  }
+})();
 </script>
 </body>
 </html>

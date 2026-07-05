@@ -8,18 +8,23 @@ import math
 import time
 from datetime import datetime
 
+import logging
+
 import httpx
 
+logger = logging.getLogger(__name__)
 _cache: dict = {}
 _TTL = 600  # 10분
 
 
-def _cached(key: str, fn):
+def _cached(key: str, fn, *, check=None):
     now = time.time()
     if key in _cache and now - _cache[key]["ts"] < _TTL:
         return _cache[key]["data"]
     data = fn()
-    _cache[key] = {"data": data, "ts": now}
+    # 빈 결과는 캐시하지 않음 (다음 요청 때 재시도)
+    if check is None or check(data):
+        _cache[key] = {"data": data, "ts": now}
     return data
 
 
@@ -41,7 +46,9 @@ def get_ticker_data(ticker: str) -> dict:
         try:
             import yfinance as yf
             t = yf.Ticker(ticker)
-            hist = t.history(period="60d")
+            hist = t.history(period="60d", prepost=True, actions=False)
+            if hist.empty:
+                hist = t.history(period="60d", actions=False)
             if hist.empty:
                 return _empty()
 
@@ -56,7 +63,7 @@ def get_ticker_data(ticker: str) -> dict:
                 if math.isnan(pct):
                     pct = 0.0
                 closes.append({
-                    "date": f"{date.month}/{date.day}",
+                    "date": f"{str(date.year)[2:]}/{date.month:02d}/{date.day:02d}",
                     "close": round(float(row["Close"]), 2),
                     "change_pct": round(pct, 1),
                     "high": round(float(row["High"]), 2),
@@ -69,19 +76,38 @@ def get_ticker_data(ticker: str) -> dict:
             last = hist.iloc[-1]
             ld = hist.index[-1]
 
-            # 프리/애프터 마켓 (실시간, 없을 수 있음)
+            # 프리/애프터 마켓 OHLC (1분봉 prepost=True로 추출)
             pre, post = None, None
             try:
-                fi = t.fast_info
-                v = getattr(fi, "pre_market_price", None)
-                pre = round(float(v), 2) if v else None
-                v = getattr(fi, "post_market_price", None)
-                post = round(float(v), 2) if v else None
+                import datetime as _dt
+                from zoneinfo import ZoneInfo
+                _ET = ZoneInfo("America/New_York")
+                intra = t.history(period="1d", interval="1m", prepost=True, actions=False)
+                if not intra.empty:
+                    et_idx = intra.index.tz_convert(_ET)
+                    pre_mask = et_idx.time < _dt.time(9, 30)
+                    post_mask = et_idx.time >= _dt.time(16, 0)
+                    if pre_mask.any():
+                        seg = intra[pre_mask]
+                        pre = {
+                            "open": round(float(seg["Open"].iloc[0]), 2),
+                            "close": round(float(seg["Close"].iloc[-1]), 2),
+                            "high": round(float(seg["High"].max()), 2),
+                            "low": round(float(seg["Low"].min()), 2),
+                        }
+                    if post_mask.any():
+                        seg = intra[post_mask]
+                        post = {
+                            "open": round(float(seg["Open"].iloc[0]), 2),
+                            "close": round(float(seg["Close"].iloc[-1]), 2),
+                            "high": round(float(seg["High"].max()), 2),
+                            "low": round(float(seg["Low"].min()), 2),
+                        }
             except Exception:
                 pass
 
             ohlc = {
-                "date": f"{ld.month}/{ld.day}",
+                "date": f"{str(ld.year)[2:]}/{ld.month:02d}/{ld.day:02d}",
                 "open": round(float(last["Open"]), 2),
                 "high": round(float(last["High"]), 2),
                 "low": round(float(last["Low"]), 2),
@@ -90,28 +116,33 @@ def get_ticker_data(ticker: str) -> dict:
                 "post": post,
             }
 
-            # 1년 차트 데이터
-            hist1y = t.history(period="1y")
-            chart = {
-                "dates": [f"{d.month}/{d.day}" for d in hist1y.index],
-                "closes": [round(float(c), 2) for c in hist1y["Close"]],
-            }
+            # 1년 차트 데이터 (실패해도 기본 데이터는 반환)
+            chart = {"dates": [], "closes": []}
             s1y: dict = {}
-            if not hist1y.empty:
-                s1y = {
-                    "min": round(float(hist1y["Close"].min()), 2),
-                    "max": round(float(hist1y["Close"].max()), 2),
-                    "current": round(float(hist1y.iloc[-1]["Close"]), 2),
-                    "change_pct": round(
-                        (float(hist1y.iloc[-1]["Close"]) - float(hist1y.iloc[0]["Close"]))
-                        / float(hist1y.iloc[0]["Close"]) * 100, 1
-                    ),
-                }
+            try:
+                hist1y = t.history(period="1y", actions=False)
+                if not hist1y.empty:
+                    chart = {
+                        "dates": [f"{str(d.year)[2:]}/{d.month:02d}/{d.day:02d}" for d in hist1y.index],
+                        "closes": [round(float(c), 2) for c in hist1y["Close"]],
+                    }
+                    s1y = {
+                        "min": round(float(hist1y["Close"].min()), 2),
+                        "max": round(float(hist1y["Close"].max()), 2),
+                        "current": round(float(hist1y.iloc[-1]["Close"]), 2),
+                        "change_pct": round(
+                            (float(hist1y.iloc[-1]["Close"]) - float(hist1y.iloc[0]["Close"]))
+                            / float(hist1y.iloc[0]["Close"]) * 100, 1
+                        ),
+                    }
+            except Exception:
+                pass
 
             return {"closes": closes, "avg_5": avg_5, "ohlc": ohlc, "chart": chart, "stats_1y": s1y, "error": None}
         except Exception as e:
+            logger.error("get_ticker_data(%s) 실패: %s", ticker, e)
             return {**_empty(), "error": str(e)}
-    return _cached(f"ticker_{ticker}", _f)
+    return _cached(f"ticker_{ticker}", _f, check=lambda d: bool(d.get("closes")))
 
 
 def _empty() -> dict:
@@ -122,7 +153,7 @@ def get_fear_greed() -> dict:
     """공포&탐욕 지수 현재값 + 30일 히스토리 (alternative.me 무료 API)."""
     def _f():
         try:
-            r = httpx.get("https://api.alternative.me/fng/?limit=90", timeout=8)
+            r = httpx.get("https://api.alternative.me/fng/?limit=365", timeout=8)
             items = r.json()["data"]
             cur = items[0]
             v = int(cur["value"])
@@ -146,4 +177,4 @@ def _fg_ko(v: int) -> str:
 
 def _fmt_ts(ts: int) -> str:
     dt = datetime.utcfromtimestamp(ts)
-    return f"{dt.month}/{dt.day}"
+    return f"{str(dt.year)[2:]}/{dt.month:02d}/{dt.day:02d}"

@@ -25,17 +25,17 @@ sessions:
     final_sell_pct: 15.0
     reverse_exit_pct: 15.0
     first_buy_premium_pct: 12.0
-  TQQQ_3:
-    ticker: TQQQ
+  SOXL_1:
+    ticker: SOXL
     exchange: NASD
     strategy: infinite_buying
     principal: 20000.0
-    division: 40
-    target_profit_pct: 15.0
+    division: 20
+    target_profit_pct: 20.0
     loc_lines: 8
     loc_qty_per_line: 1
-    final_sell_pct: 15.0
-    reverse_exit_pct: 15.0
+    final_sell_pct: 20.0
+    reverse_exit_pct: 20.0
     first_buy_premium_pct: 12.0
     disable_big_number: false
-    label: aaa
+    label: SOXL_1
