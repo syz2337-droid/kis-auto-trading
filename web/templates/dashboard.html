@@ -543,17 +543,31 @@
       <!-- 거래일 변동 -->
       {% set o = row.market.ohlc %}
       {% if o and o.high is defined %}
-        {% set rng = o.high - o.low %}
-        {% if rng > 0 %}
-          {% set o_pct = (o.open - o.low) / rng * 100 %}
-          {% set c_pct = (o.close - o.low) / rng * 100 %}
-          {% set body_bot = o_pct if o_pct < c_pct else c_pct %}
-          {% set body_h   = ((c_pct - o_pct) | abs) %}
-          {% set is_pos = o.close >= o.open %}
+        {# ── 전 세션 공유 Y축 계산 ── #}
+        {% set g_high = o.high %}
+        {% set g_low  = o.low %}
+        {% if o.pre %}
+          {% set g_high = [g_high, o.pre.high]  | max %}
+          {% set g_low  = [g_low,  o.pre.low]   | min %}
+        {% endif %}
+        {% if o.post %}
+          {% set g_high = [g_high, o.post.high] | max %}
+          {% set g_low  = [g_low,  o.post.low]  | min %}
+        {% endif %}
+        {% set g_rng = g_high - g_low if g_high > g_low else 0.01 %}
+        {# 정규 캔들 포지션 #}
+        {% set o_pct   = (o.open  - g_low) / g_rng * 100 %}
+        {% set c_pct   = (o.close - g_low) / g_rng * 100 %}
+        {% set body_bot = o_pct if o_pct < c_pct else c_pct %}
+        {% set body_h   = (c_pct - o_pct) | abs %}
+        {% set is_pos   = o.close >= o.open %}
+        {# 정규 wick: 전체 g_rng 기준 #}
+        {% set wick_bot = (o.low  - g_low) / g_rng * 100 %}
+        {% set wick_top = (g_high - o.high) / g_rng * 100 %}
       <div class="ohlc-section">
         <div class="ohlc-head">
           <span class="ohlc-title">{{ o.date }} 거래일 변동</span>
-          <span class="ohlc-hl">H ${{ o.high }} · L ${{ o.low }}</span>
+          <span class="ohlc-hl">H ${{ g_high }} · L ${{ g_low }}</span>
         </div>
         <div class="ohlc-cols">
           <!-- 프리마켓 -->
@@ -561,23 +575,20 @@
             <div class="ohlc-col-label">프리</div>
             {% if o.pre %}
               {% set p = o.pre %}
-              {% set p_rng = p.high - p.low %}
-              {% if p_rng > 0 %}
-                {% set p_o_pct = (p.open - p.low) / p_rng * 100 %}
-                {% set p_c_pct = (p.close - p.low) / p_rng * 100 %}
-                {% set p_body_bot = p_o_pct if p_o_pct < p_c_pct else p_c_pct %}
-                {% set p_body_h = ((p_c_pct - p_o_pct) | abs) %}
-              {% else %}
-                {% set p_o_pct = 50 %}{% set p_c_pct = 50 %}{% set p_body_bot = 48 %}{% set p_body_h = 4 %}
-              {% endif %}
+              {% set p_o_pct    = (p.open  - g_low) / g_rng * 100 %}
+              {% set p_c_pct    = (p.close - g_low) / g_rng * 100 %}
+              {% set p_body_bot = p_o_pct if p_o_pct < p_c_pct else p_c_pct %}
+              {% set p_body_h   = (p_c_pct - p_o_pct) | abs %}
+              {% set p_wick_bot = (p.low  - g_low) / g_rng * 100 %}
+              {% set p_wick_top = (g_high - p.high) / g_rng * 100 %}
             <div class="ohlc-price-top">${{ p.high }}</div>
             <div class="candle-wrap">
-              <div class="candle-wick" style="background:var(--acc); bottom:0; top:0;"></div>
-              <div class="candle-body" style="background:var(--acc); bottom:{{ p_body_bot }}%; height:{{ [p_body_h, 4] | max }}%;"></div>
+              <div class="candle-wick" style="background:var(--acc); bottom:{{ p_wick_bot }}%; top:{{ p_wick_top }}%;"></div>
+              <div class="candle-body" style="background:var(--acc); bottom:{{ p_body_bot }}%; height:{{ [p_body_h, 3] | max }}%;"></div>
             </div>
             <div class="ohlc-price-bot">${{ p.low }}</div>
             {% else %}
-            <div class="bar-wrap" style="display:flex;align-items:center;justify-content:center;">
+            <div class="candle-wrap" style="display:flex;align-items:center;justify-content:center;">
               <span style="font-size:0.6rem;color:var(--t4);">–</span>
             </div>
             {% endif %}
@@ -587,21 +598,10 @@
             <div class="ohlc-col-label">정규</div>
             <div class="ohlc-price-top">${{ o.high }}</div>
             <div class="candle-wrap">
-              <!-- wick -->
-              <div class="candle-wick" style="
-                background: {{ 'var(--ok)' if is_pos else 'var(--err)' }};
-                bottom: 0; top: 0;">
-              </div>
-              <!-- body -->
-              <div class="candle-body" style="
-                background: {{ 'var(--ok)' if is_pos else 'var(--err)' }};
-                bottom: {{ body_bot }}%;
-                height: {{ [body_h, 4] | max }}%;">
-              </div>
-              <!-- close label -->
+              <div class="candle-wick" style="background:{{ 'var(--ok)' if is_pos else 'var(--err)' }}; bottom:{{ wick_bot }}%; top:{{ wick_top }}%;"></div>
+              <div class="candle-body" style="background:{{ 'var(--ok)' if is_pos else 'var(--err)' }}; bottom:{{ body_bot }}%; height:{{ [body_h, 3] | max }}%;"></div>
               <div style="position:absolute; left:50%; transform:translate(-50%,-50%); top:{{ 100 - c_pct }}%;
-                          width:8px; height:8px; background:var(--bg); border:2px solid {{ 'var(--ok)' if is_pos else 'var(--err)' }};
-                          border-radius:50%;"></div>
+                          width:8px; height:8px; background:var(--bg); border:2px solid {{ 'var(--ok)' if is_pos else 'var(--err)' }}; border-radius:50%;"></div>
             </div>
             <div class="ohlc-price-bot">${{ o.low }}</div>
           </div>
@@ -610,23 +610,20 @@
             <div class="ohlc-col-label">애프터</div>
             {% if o.post %}
               {% set q = o.post %}
-              {% set q_rng = q.high - q.low %}
-              {% if q_rng > 0 %}
-                {% set q_o_pct = (q.open - q.low) / q_rng * 100 %}
-                {% set q_c_pct = (q.close - q.low) / q_rng * 100 %}
-                {% set q_body_bot = q_o_pct if q_o_pct < q_c_pct else q_c_pct %}
-                {% set q_body_h = ((q_c_pct - q_o_pct) | abs) %}
-              {% else %}
-                {% set q_o_pct = 50 %}{% set q_c_pct = 50 %}{% set q_body_bot = 48 %}{% set q_body_h = 4 %}
-              {% endif %}
+              {% set q_o_pct    = (q.open  - g_low) / g_rng * 100 %}
+              {% set q_c_pct    = (q.close - g_low) / g_rng * 100 %}
+              {% set q_body_bot = q_o_pct if q_o_pct < q_c_pct else q_c_pct %}
+              {% set q_body_h   = (q_c_pct - q_o_pct) | abs %}
+              {% set q_wick_bot = (q.low  - g_low) / g_rng * 100 %}
+              {% set q_wick_top = (g_high - q.high) / g_rng * 100 %}
             <div class="ohlc-price-top">${{ q.high }}</div>
             <div class="candle-wrap">
-              <div class="candle-wick" style="background:var(--rev); bottom:0; top:0;"></div>
-              <div class="candle-body" style="background:var(--rev); bottom:{{ q_body_bot }}%; height:{{ [q_body_h, 4] | max }}%;"></div>
+              <div class="candle-wick" style="background:var(--rev); bottom:{{ q_wick_bot }}%; top:{{ q_wick_top }}%;"></div>
+              <div class="candle-body" style="background:var(--rev); bottom:{{ q_body_bot }}%; height:{{ [q_body_h, 3] | max }}%;"></div>
             </div>
             <div class="ohlc-price-bot">${{ q.low }}</div>
             {% else %}
-            <div class="bar-wrap" style="display:flex;align-items:center;justify-content:center;">
+            <div class="candle-wrap" style="display:flex;align-items:center;justify-content:center;">
               <span style="font-size:0.6rem;color:var(--t4);">–</span>
             </div>
             {% endif %}
