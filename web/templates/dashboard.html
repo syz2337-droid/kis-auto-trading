@@ -826,15 +826,16 @@
           <div>
             <span class="order-label">{{ ord.label }}</span>
             <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
-            {% if has_actual and ord.accepted == false %}
-              <span class="fill-badge unknown">✗ 접수실패</span>
-            {% endif %}
           </div>
           {% if has_actual %}
             <div>
               <span class="order-price">{{ ord.price }}</span>
               <span class="order-qty">{{ ord.qty }}주</span>
-              <span class="fill-badge filled" style="margin-left:0.3rem;">✓ 예약완료</span>
+              {% if ord.accepted == false %}
+                <span class="fill-badge unknown" style="margin-left:0.3rem;">✗ 접수실패</span>
+              {% else %}
+                <span class="fill-badge filled" style="margin-left:0.3rem;">✓ 예약완료</span>
+              {% endif %}
             </div>
           {% else %}
             <div style="display:flex;align-items:center;gap:0.35rem;">
@@ -858,15 +859,16 @@
           <div>
             <span class="order-label">{{ ord.label }}</span>
             <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
-            {% if has_actual and ord.accepted == false %}
-              <span class="fill-badge unknown">✗ 접수실패</span>
-            {% endif %}
           </div>
           {% if has_actual %}
             <div>
               <span class="order-price">{{ ord.price }}</span>
               <span class="order-qty">{{ ord.qty }}주</span>
-              <span class="fill-badge filled" style="margin-left:0.3rem;">✓ 예약완료</span>
+              {% if ord.accepted == false %}
+                <span class="fill-badge unknown" style="margin-left:0.3rem;">✗ 접수실패</span>
+              {% else %}
+                <span class="fill-badge filled" style="margin-left:0.3rem;">✓ 예약완료</span>
+              {% endif %}
             </div>
           {% else %}
             <div style="display:flex;align-items:center;gap:0.35rem;">

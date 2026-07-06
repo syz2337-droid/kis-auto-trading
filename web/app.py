@@ -426,16 +426,8 @@ async def place_single_order(session_id: str, request: Request):
     accepted = result.get("rt_cd") == "0"
     msg = result.get("msg1", "") if not accepted else ""
 
-    entry = {"side": side, "qty": qty, "price": price, "ord_dvsn": ord_dvsn,
-             "note": note, "filled": False, "accepted": accepted}
-    orders = _latest_orders.setdefault(session_id, [])
-    # 같은 side+price 기존 항목 업데이트, 없으면 추가
-    for o in orders:
-        if o.get("side") == side and abs((o.get("price") or 0) - price) < 0.01:
-            o.update(entry)
-            break
-    else:
-        orders.append(entry)
+    # _latest_orders는 수정하지 않음 — full run 결과만 저장
+    # 개별 예약 결과는 JS에서 버튼 상태로만 표시
 
     return JSONResponse({"ok": True, "accepted": accepted, "msg": msg,
                          "result": result})
