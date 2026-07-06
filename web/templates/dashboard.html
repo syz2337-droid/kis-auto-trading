@@ -420,8 +420,16 @@
       <div>
         <div class="session-meta">{{ row.ticker }} · {{ row.division }}분할 · ${{ "{:,.0f}".format(row.principal) }}</div>
         <div class="session-badges">
-          {% if row.sell_orders or row.buy_orders %}
-            <span class="badge-sm green">주문 완료</span>
+          {% set all_orders = row.sell_orders + row.buy_orders %}
+          {% if all_orders %}
+            {% set failed = all_orders | selectattr('accepted', 'equalto', false) | list %}
+            {% if failed | length == all_orders | length %}
+              <span class="badge-sm red">접수 실패</span>
+            {% elif failed %}
+              <span class="badge-sm orange">일부 실패</span>
+            {% else %}
+              <span class="badge-sm green">주문 완료</span>
+            {% endif %}
           {% else %}
             <span class="badge-sm orange">주문 전</span>
           {% endif %}
@@ -1652,6 +1660,7 @@ function switchAnalysisSub(panelSid, subSid, btn) {
   panel.querySelectorAll('[id^="aview-' + panelSid + '-"]').forEach(el => el.style.display = 'none');
   const target = document.getElementById('aview-' + panelSid + '-' + subSid);
   if (target) target.style.display = 'block';
+  setTimeout(() => initPortfolioChart(panelSid, subSid), 50);
 }
 
 /* ===================== SESSION TOGGLE ===================== */
@@ -1775,14 +1784,6 @@ function initPortfolioChart(panelSid, subSid) {
       }
     }
   });
-}
-
-// switchAnalysisSub 에 포트폴리오 차트 초기화 연결
-const _origSwitchAnalysisSub = switchAnalysisSub;
-// Override to also init portfolio chart
-function switchAnalysisSub(panelSid, subSid, btn) {
-  _origSwitchAnalysisSub(panelSid, subSid, btn);
-  setTimeout(() => initPortfolioChart(panelSid, subSid), 50);
 }
 
 /* ===================== INIT ===================== */
