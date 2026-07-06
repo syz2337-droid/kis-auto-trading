@@ -25,7 +25,7 @@ def check_and_apply(session_id: str, ticker: str, lookback: int = 3) -> float | 
     if splits.empty:
         return None
 
-    cutoff = pd.Timestamp(date.today() - timedelta(days=lookback))
+    cutoff = pd.Timestamp(date.today() - timedelta(days=lookback), tz="America/New_York")
     recent = splits[splits.index >= cutoff]
     if recent.empty:
         return None
