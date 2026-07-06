@@ -238,16 +238,16 @@ def _session_rows() -> list[dict]:
         unrealized_pnl_pct = round(unrealized_pnl / invested * 100, 1) if unrealized_pnl is not None and invested > 0 else None
         portfolio_value = round(state.cash + (current_price * state.qty if current_price and state.qty else 0), 2)
 
-        # 오늘 실행 전이면 예상 주문 미리계산
+        # 메모리에 실제 주문이 없으면 예상 주문 계산 (서버 재시작 후 포함)
         preview_sell: list[dict] = []
         preview_buy: list[dict] = []
-        today_str = datetime.now(KST).strftime("%Y-%m-%d")
-        if state.last_run_date != today_str and not _latest_orders.get(session_id):
+        if not _latest_orders.get(session_id):
             try:
                 cfg = _session_config(params)
                 strat = STRATEGIES.get(params.get("strategy", "infinite_buying"))
-                if strat and current_price:
-                    pq = {"symbol": ticker, "last": current_price, "prev_close": current_price, "raw": {}}
+                price_for_preview = current_price or state.avg_price or 1.0
+                if strat:
+                    pq = {"symbol": ticker, "last": price_for_preview, "prev_close": price_for_preview, "raw": {}}
                     for o in strat.compute_orders(state, pq, cfg):
                         d = asdict(o)
                         d["is_preview"] = True
