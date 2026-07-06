@@ -13,4 +13,5 @@ _NYSE = mcal.get_calendar("NYSE")
 def is_trading_day(d: date | None = None) -> bool:
     """d가 NYSE 거래일이면 True. 기본값은 오늘(KST 기준)."""
     d = d or date.today()
-    return len(_NYSE.valid_days(str(d), str(d))) > 0
+    schedule = _NYSE.schedule(start_date=str(d), end_date=str(d))
+    return not schedule.empty
