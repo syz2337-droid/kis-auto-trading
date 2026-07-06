@@ -48,7 +48,8 @@ def next_session_id(raw: dict, ticker: str) -> str:
 
 def _session_config(params: dict) -> TickerConfig:
     params = dict(params)
-    params.pop("strategy", None)
+    for key in ("strategy", "label"):
+        params.pop(key, None)
     return TickerConfig(**params)
 
 
