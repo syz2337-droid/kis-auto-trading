@@ -291,7 +291,16 @@
       color:var(--t2); cursor:pointer; transition:all 0.15s; white-space:nowrap; }
     .order-place-btn:hover { background:var(--acc-s); color:#fff; border-color:var(--acc-s); }
     .order-place-btn.placed-ok  { background:color-mix(in srgb,var(--ok) 15%,transparent); color:var(--ok); border-color:var(--ok); cursor:default; }
-    .order-place-btn.placed-err { background:color-mix(in srgb,var(--err) 15%,transparent); color:var(--err); border-color:var(--err); cursor:default; }
+    .order-toast { font-size:0.68rem; color:var(--err); padding:0.25rem 0.6rem;
+      margin-top:0.2rem; border-radius:5px;
+      background:color-mix(in srgb,var(--err) 10%,transparent);
+      border:1px solid color-mix(in srgb,var(--err) 25%,transparent);
+      animation: toastFade 3.5s forwards; }
+    @keyframes toastFade {
+      0%   { opacity:1; }
+      60%  { opacity:1; }
+      100% { opacity:0; }
+    }
 
     /* ===================== 분석 탭 ===================== */
     .chart-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
@@ -1710,6 +1719,19 @@ function switchAnalysisSub(panelSid, subSid, btn) {
 }
 
 /* ===================== INDIVIDUAL ORDER PLACEMENT ===================== */
+function _showOrderToast(row, msg) {
+  const prev = row.parentNode.querySelector('.order-toast[data-for="' + row.dataset.toastId + '"]');
+  if (prev) prev.remove();
+  const id = Date.now();
+  row.dataset.toastId = id;
+  const t = document.createElement('div');
+  t.className = 'order-toast';
+  t.dataset.for = id;
+  t.textContent = '실패: ' + (msg || '접수 오류');
+  row.insertAdjacentElement('afterend', t);
+  setTimeout(() => t.remove(), 3600);
+}
+
 async function placeOrder(btn, sessionId, side, ordDvsn, note) {
   const row = btn.closest('.order-row');
   const priceInput = row.querySelector('.order-input:not(.order-qty-input)');
@@ -1734,16 +1756,15 @@ async function placeOrder(btn, sessionId, side, ordDvsn, note) {
       btn.textContent = '✓ 완료';
       btn.className   = 'order-place-btn placed-ok';
     } else {
-      btn.textContent = '✗ 실패';
-      btn.className   = 'order-place-btn placed-err';
-      btn.title = data.msg || '접수 실패';
+      _showOrderToast(row, data.msg);
+      btn.textContent = '예약';
       btn.disabled = false;
       priceInput.disabled = false;
       qtyInput.disabled   = false;
     }
   } catch(e) {
-    btn.textContent = '오류';
-    btn.className   = 'order-place-btn placed-err';
+    _showOrderToast(row, e.toString());
+    btn.textContent = '예약';
     btn.disabled = false;
     priceInput.disabled = false;
     qtyInput.disabled   = false;
