@@ -789,89 +789,56 @@
 
       <!-- 오늘의 주문 -->
       {% set has_actual = row.sell_orders or row.buy_orders %}
-      {% set has_preview = row.preview_sell or row.preview_buy %}
+      {% set display_sell = row.sell_orders if has_actual else row.preview_sell %}
+      {% set display_buy  = row.buy_orders  if has_actual else row.preview_buy %}
       <div class="orders-section">
         <div class="orders-head">
           <span class="section-title">오늘의 주문</span>
-          {% if has_actual %}
-            <span style="font-size:0.72rem;color:var(--t3);">예약 {{ row.sell_orders|length + row.buy_orders|length }}건</span>
-          {% elif has_preview %}
-            <span style="font-size:0.72rem;color:var(--acc-s);opacity:0.7;">예상 {{ row.preview_sell|length + row.preview_buy|length }}건</span>
-          {% endif %}
+          <span style="font-size:0.72rem;color:var(--t3);">
+            {{ (display_sell|length + display_buy|length) }}건
+            {% if not has_actual %}<span style="color:var(--t4);">(주문 전)</span>{% endif %}
+          </span>
         </div>
 
-        {# --- 실제 제출된 주문 (접수 완료/실패만 표시) --- #}
-        {% if has_actual %}
-          <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
-          {% for ord in row.sell_orders %}
-          <div class="order-row sell">
-            <div>
-              <span class="order-label">{{ ord.label }}</span>
-              <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
+        <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
+        {% for ord in display_sell %}
+        <div class="order-row sell">
+          <div>
+            <span class="order-label">{{ ord.label }}</span>
+            <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
+            {% if has_actual %}
               {% if ord.accepted == false %}
                 <span class="fill-badge unknown">✗ 접수실패</span>
               {% else %}
                 <span class="fill-badge filled">✓ 예약완료</span>
               {% endif %}
-            </div>
-            <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+            {% endif %}
           </div>
-          {% else %}
-          <div class="empty-note">매도 주문 없음</div>
-          {% endfor %}
-          <div class="order-group-head buy-head orders-gap"><span class="order-dot buy-dot"></span>매수</div>
-          {% for ord in row.buy_orders %}
-          <div class="order-row buy">
-            <div>
-              <span class="order-label">{{ ord.label }}</span>
-              <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
-              {% if ord.accepted == false %}
-                <span class="fill-badge unknown">✗ 접수실패</span>
-              {% else %}
-                <span class="fill-badge filled">✓ 예약완료</span>
-              {% endif %}
-            </div>
-            <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
-          </div>
-          {% else %}
-          <div class="empty-note">매수 주문 없음</div>
-          {% endfor %}
-
-        {# --- 예상 주문 미리보기 (실행 전) --- #}
-        {% elif has_preview %}
-          <div style="font-size:0.68rem;color:var(--t4);margin-bottom:0.5rem;padding:0.3rem 0.5rem;background:color-mix(in srgb,var(--acc) 6%,transparent);border-radius:6px;">
-            실행 전 예상 주문입니다 — 당일 종가 기준으로 실제 가격과 다를 수 있습니다
-          </div>
-          <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
-          {% for ord in row.preview_sell %}
-          <div class="order-row sell" style="opacity:0.6;">
-            <div>
-              <span class="order-label">{{ ord.label }}</span>
-              <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
-              <span class="fill-badge unknown" style="font-size:0.6rem;">예상</span>
-            </div>
-            <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
-          </div>
-          {% else %}
-          <div class="empty-note">매도 주문 없음</div>
-          {% endfor %}
-          <div class="order-group-head buy-head orders-gap"><span class="order-dot buy-dot"></span>매수</div>
-          {% for ord in row.preview_buy %}
-          <div class="order-row buy" style="opacity:0.6;">
-            <div>
-              <span class="order-label">{{ ord.label }}</span>
-              <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
-              <span class="fill-badge unknown" style="font-size:0.6rem;">예상</span>
-            </div>
-            <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
-          </div>
-          {% else %}
-          <div class="empty-note">매수 주문 없음</div>
-          {% endfor %}
-
+          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+        </div>
         {% else %}
-          <div class="empty-note">주문 없음 — 오늘 실행 전이거나 종료 상태</div>
-        {% endif %}
+        <div class="empty-note">매도 없음{% if not has_actual and row.qty == 0 %} — 최초 매수 전{% endif %}</div>
+        {% endfor %}
+
+        <div class="order-group-head buy-head orders-gap"><span class="order-dot buy-dot"></span>매수</div>
+        {% for ord in display_buy %}
+        <div class="order-row buy">
+          <div>
+            <span class="order-label">{{ ord.label }}</span>
+            <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
+            {% if has_actual %}
+              {% if ord.accepted == false %}
+                <span class="fill-badge unknown">✗ 접수실패</span>
+              {% else %}
+                <span class="fill-badge filled">✓ 예약완료</span>
+              {% endif %}
+            {% endif %}
+          </div>
+          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+        </div>
+        {% else %}
+        <div class="empty-note">매수 없음</div>
+        {% endfor %}
       </div>
 
       <!-- 거래 히스토리 -->
