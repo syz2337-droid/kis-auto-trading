@@ -62,11 +62,11 @@ def _record_results(results: list[dict], trigger: str) -> None:
         session_id = r["session_id"]
         orders = r.get("orders", [])
         submitted = r.get("submitted", [])
-        # 제출 성공 여부 확인: submitted result에 error가 없으면 접수됨
+        # 제출 성공 여부 확인: rt_cd == "0" 이어야 접수됨
         def _order_accepted(i: int) -> bool:
             if i >= len(submitted): return False
             res = submitted[i].get("result", {})
-            return not res.get("error") and res.get("rt_cd") == "0"
+            return res.get("rt_cd") == "0"
         orders_with_status = [{**o, "filled": False, "accepted": _order_accepted(i)} for i, o in enumerate(orders)]
         _latest_orders[session_id] = orders_with_status
         _history.setdefault(session_id, []).insert(
@@ -320,11 +320,25 @@ def run_now():
                 summary.append({"session_id": r["session_id"], "ticker": r.get("ticker",""), "status": "skipped", "reason": r.get("reason", "")})
             else:
                 orders = r.get("orders", [])
+                submitted_list = r.get("submitted", [])
+                order_rows = []
+                fail_count = 0
+                for i, o in enumerate(orders):
+                    res = submitted_list[i]["result"] if i < len(submitted_list) else {}
+                    accepted = res.get("rt_cd") == "0"
+                    if not accepted:
+                        fail_count += 1
+                    order_rows.append({
+                        "side": o["side"], "qty": o["qty"], "price": o.get("price"),
+                        "note": o.get("note",""), "accepted": accepted,
+                        "msg": res.get("msg1","") if not accepted else "",
+                    })
                 summary.append({
                     "session_id": r["session_id"], "ticker": r.get("ticker",""),
-                    "status": "ok", "mode": r.get("mode"), "T": r.get("T"),
-                    "order_count": len(orders),
-                    "orders": [{"side": o["side"], "qty": o["qty"], "price": o.get("price"), "note": o.get("note","")} for o in orders],
+                    "status": "ok" if fail_count == 0 else "partial",
+                    "mode": r.get("mode"), "T": r.get("T"),
+                    "order_count": len(orders), "fail_count": fail_count,
+                    "orders": order_rows,
                 })
         return JSONResponse({"ok": True, "results": summary})
     except Exception as e:

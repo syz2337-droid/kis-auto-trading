@@ -45,13 +45,19 @@ def place_order(
     ord_dvsn: ORD_DVSN_LIMIT / ORD_DVSN_LOC / ORD_DVSN_MOC
     MOC는 매도 전용이며, 가격은 의미가 없어 0으로 보낸다.
     """
+    # 모의투자는 LOC/MOC 미지원 → 지정가(00)로 대체
+    if IS_MOCK and ord_dvsn in (ORD_DVSN_LOC, ORD_DVSN_MOC):
+        ord_dvsn = ORD_DVSN_LIMIT
+        if not price:
+            price = 0.0  # MOC인 경우 price가 없으므로 0 (접수 실패 방어)
+
     body = {
         "CANO": ACCOUNT_NO[:8],
         "ACNT_PRDT_CD": ACCOUNT_PRODUCT_CD,
         "OVRS_EXCG_CD": exchange,
         "PDNO": symbol,
         "ORD_QTY": str(qty),
-        "OVRS_ORD_UNPR": "0" if ord_dvsn == ORD_DVSN_MOC else f"{price:.2f}",
+        "OVRS_ORD_UNPR": f"{price:.2f}",
         "ORD_SVR_DVSN_CD": "0",
         "ORD_DVSN": ord_dvsn,
     }

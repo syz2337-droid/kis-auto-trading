@@ -1688,10 +1688,13 @@ function showRunModal(data) {
     body.innerHTML = '<div class="run-result-row"><span style="color:var(--err);font-size:0.8rem;">' + (data.error || '알 수 없는 오류') + '</span></div>';
     return;
   }
-  title.textContent = '실행 완료 — ' + data.results.length + '개 세션';
+  const allOk = data.results.every(r => r.status === 'ok');
+  title.textContent = '실행 완료 — ' + data.results.length + '개 세션' + (allOk ? '' : ' (일부 실패)');
   body.innerHTML = data.results.map(r => {
-    const badgeCls = r.status === 'ok' ? 'ok' : 'skip';
-    const badgeText = r.status === 'ok' ? '성공' : ('건너뜀: ' + (r.reason || ''));
+    let badgeCls, badgeText;
+    if (r.status === 'ok')      { badgeCls='ok';   badgeText='접수 완료'; }
+    else if (r.status==='partial'){ badgeCls='err';  badgeText='일부 실패 ' + r.fail_count + '건'; }
+    else                         { badgeCls='skip'; badgeText='건너뜀: ' + (r.reason || ''); }
     let ordersHtml = '';
     if (r.orders && r.orders.length) {
       ordersHtml = '<div class="run-result-orders">' +
@@ -1699,10 +1702,12 @@ function showRunModal(data) {
           const sideCls = o.side === 'buy' ? 'side-buy' : 'side-sell';
           const sideText = o.side === 'buy' ? '매수' : '매도';
           const price = o.price ? '$' + Number(o.price).toFixed(2) : 'MOC';
-          return '<div class="run-result-order"><span class="' + sideCls + '">' + sideText + '</span><span>' + o.qty + '주</span><span>' + price + '</span><span style="color:var(--t4);">' + (o.note || '') + '</span></div>';
+          const statusMark = o.accepted === false ? ' <span style="color:var(--err)">✗</span>' : ' <span style="color:var(--ok)">✓</span>';
+          const failMsg = (!o.accepted && o.msg) ? ' <span style="color:var(--err);font-size:0.62rem;">' + o.msg.slice(0,40) + '</span>' : '';
+          return '<div class="run-result-order"><span class="' + sideCls + '">' + sideText + '</span><span>' + o.qty + '주</span><span>' + price + '</span><span style="color:var(--t4);">' + (o.note||'') + '</span>' + statusMark + failMsg + '</div>';
         }).join('') + '</div>';
     }
-    return '<div class="run-result-row"><div class="run-result-head"><span class="run-result-sid">' + r.session_id + (r.ticker ? ' · ' + r.ticker : '') + '</span><span class="run-result-badge ' + badgeCls + '">' + badgeText + '</span></div>' + ordersHtml + '</div>';
+    return '<div class="run-result-row"><div class="run-result-head"><span class="run-result-sid">' + r.session_id + (r.ticker?' · '+r.ticker:'') + '</span><span class="run-result-badge ' + badgeCls + '">' + badgeText + '</span></div>' + ordersHtml + '</div>';
   }).join('');
 }
 
