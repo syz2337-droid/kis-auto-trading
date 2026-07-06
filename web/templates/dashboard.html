@@ -143,6 +143,9 @@
     /* ===================== INNER TABS ===================== */
     .inner-tabs {
       display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1rem;
+      position: sticky; top: var(--topbar-h, 84px); z-index: 10;
+      background: var(--bg); margin-left: -1rem; margin-right: -1rem;
+      padding: 0 1rem;
     }
     .inner-tab {
       padding: 0.55rem 1rem; font-size: 0.875rem; font-weight: 600; color: var(--t3);
@@ -497,6 +500,10 @@
         </div>
       </form>
       <div class="settings-actions" style="margin-top:0.5rem;">
+        <form method="post" action="/session/{{ row.session_id }}/reset-date" style="flex:1;"
+              onsubmit="return confirm('오늘 실행 기록만 초기화할까요? T값·보유량은 유지됩니다.')">
+          <button type="submit" class="btn-reset" style="width:100%;color:var(--acc-s);">오늘 재실행</button>
+        </form>
         <form method="post" action="/session/{{ row.session_id }}/reset" style="flex:1;"
               onsubmit="return confirm('{{ row.session_id }} 세션을 초기화할까요?')">
           <button type="submit" class="btn-reset" style="width:100%;">세션 초기화</button>
@@ -1788,6 +1795,10 @@ function initPortfolioChart(panelSid, subSid) {
 
 /* ===================== INIT ===================== */
 restoreTheme();
+document.documentElement.style.setProperty(
+  '--topbar-h',
+  (document.querySelector('.topbar')?.offsetHeight ?? 84) + 'px'
+);
 restoreSession();
 restoreInnerTabs();
 // 페이지 로드 후 활성 세션의 현재 탭 차트 초기화

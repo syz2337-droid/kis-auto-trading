@@ -451,6 +451,14 @@ def session_update(
     return RedirectResponse(url="/", status_code=303)
 
 
+@app.post("/session/{session_id}/reset-date")
+def session_reset_date(session_id: str):
+    state = load_state(session_id)
+    state.last_run_date = None
+    save_state(session_id, state)
+    return RedirectResponse(url="/", status_code=303)
+
+
 @app.post("/session/{session_id}/reset")
 def session_reset(session_id: str):
     raw = load_raw_config()
