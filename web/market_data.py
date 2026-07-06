@@ -82,11 +82,17 @@ def get_ticker_data(ticker: str) -> dict:
                 import datetime as _dt
                 from zoneinfo import ZoneInfo
                 _ET = ZoneInfo("America/New_York")
-                intra = t.history(period="1d", interval="1m", prepost=True, actions=False)
+                intra = t.history(period="2d", interval="1m", prepost=True, actions=False)
                 if not intra.empty:
                     et_idx = intra.index.tz_convert(_ET)
-                    pre_mask = et_idx.time < _dt.time(9, 30)
-                    post_mask = et_idx.time >= _dt.time(16, 0)
+                    today_et = _dt.datetime.now(_ET).date()
+
+                    # 프리마켓: 오늘 09:30 이전
+                    pre_mask = (et_idx.date == today_et) & (et_idx.time < _dt.time(9, 30))
+                    # 애프터장: 오늘 16:00 이후 있으면 우선, 없으면 전날 것 사용
+                    post_today = (et_idx.date == today_et) & (et_idx.time >= _dt.time(16, 0))
+                    post_mask = post_today if post_today.any() else (et_idx.time >= _dt.time(16, 0))
+
                     if pre_mask.any():
                         seg = intra[pre_mask]
                         pre = {
