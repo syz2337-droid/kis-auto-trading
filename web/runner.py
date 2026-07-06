@@ -48,7 +48,7 @@ def next_session_id(raw: dict, ticker: str) -> str:
 
 def _session_config(params: dict) -> TickerConfig:
     params = dict(params)
-    for key in ("strategy", "label"):
+    for key in ("strategy", "label", "enabled"):
         params.pop(key, None)
     return TickerConfig(**params)
 
@@ -144,5 +144,8 @@ def run_all() -> list[dict]:
     raw = load_raw_config()
     results = []
     for session_id, params in raw.get("sessions", {}).items():
+        if not params.get("enabled", True):
+            results.append({"session_id": session_id, "ticker": params.get("ticker", session_id), "skipped": True, "reason": "비활성화됨"})
+            continue
         results.append(run_daily(session_id, params))
     return results

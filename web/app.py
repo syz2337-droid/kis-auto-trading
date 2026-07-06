@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from state.store import load_state, save_state
@@ -47,12 +47,15 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 _run_log: list[dict] = []
 _latest_orders: dict[str, list[dict]] = {}
 _history: dict[str, list[dict]] = {}
+_portfolio_history: list[dict] = []  # [{date, total, sessions:{sid: value}}]
 
 _ORD_DVSN_TAG = {"00": "지정가", "34": "LOC", "33": "MOC"}
 
 
 def _record_results(results: list[dict], trigger: str) -> None:
     now = datetime.now(KST)
+    date_label = f"{now.month}/{now.day}"
+    session_values: dict[str, float] = {}
     for r in results:
         if r.get("skipped"):
             continue
@@ -62,7 +65,7 @@ def _record_results(results: list[dict], trigger: str) -> None:
         _history.setdefault(session_id, []).insert(
             0,
             {
-                "date": f"{now.month}/{now.day}",
+                "date": date_label,
                 "mode": r.get("mode"),
                 "T": r.get("T"),
                 "avg_price": r.get("avg_price"),
@@ -71,7 +74,19 @@ def _record_results(results: list[dict], trigger: str) -> None:
                 "orders": [{**o, "filled": None} for o in orders],
             },
         )
-        _history[session_id] = _history[session_id][:30]
+        _history[session_id] = _history[session_id][:90]
+        avg = r.get("avg_price") or 0
+        qty = r.get("qty") or 0
+        cash = r.get("cash") or 0
+        session_values[session_id] = round(cash + avg * qty, 2)
+    if session_values:
+        _portfolio_history.append({
+            "date": date_label,
+            "total": round(sum(session_values.values()), 2),
+            "sessions": session_values,
+        })
+        if len(_portfolio_history) > 90:
+            _portfolio_history.pop(0)
     _run_log.append({"time": now.isoformat(), "trigger": trigger, "results": results})
 
 
@@ -200,6 +215,7 @@ def _session_rows() -> list[dict]:
         rows.append(
             {
                 "session_id": session_id,
+                "enabled": params.get("enabled", True),
                 "label": params.get("label", session_id),
                 "ticker": ticker,
                 "strategy": params.get("strategy", "infinite_buying"),
@@ -278,13 +294,43 @@ def dashboard(request: Request):
     fx = get_exchange_rate()
     fear_greed = get_fear_greed()
     analysis = _analysis_summary(rows, fx)
-    return templates.TemplateResponse(request, "dashboard.html", {"rows": rows, "fx": fx, "fear_greed": fear_greed, "analysis": analysis})
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "rows": rows, "fx": fx, "fear_greed": fear_greed,
+        "analysis": analysis, "portfolio_history": _portfolio_history,
+    })
 
 
 @app.post("/run")
 def run_now():
-    _record_results(run_all(), "manual")
-    return RedirectResponse(url="/", status_code=303)
+    try:
+        results = run_all()
+        _record_results(results, "manual")
+        summary = []
+        for r in results:
+            if r.get("skipped"):
+                summary.append({"session_id": r["session_id"], "ticker": r.get("ticker",""), "status": "skipped", "reason": r.get("reason", "")})
+            else:
+                orders = r.get("orders", [])
+                summary.append({
+                    "session_id": r["session_id"], "ticker": r.get("ticker",""),
+                    "status": "ok", "mode": r.get("mode"), "T": r.get("T"),
+                    "order_count": len(orders),
+                    "orders": [{"side": o["side"], "qty": o["qty"], "price": o.get("price"), "note": o.get("note","")} for o in orders],
+                })
+        return JSONResponse({"ok": True, "results": summary})
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/session/{session_id}/toggle")
+def session_toggle(session_id: str):
+    raw = load_raw_config()
+    session = raw.get("sessions", {}).get(session_id)
+    if session is None:
+        return JSONResponse({"enabled": True})
+    session["enabled"] = not session.get("enabled", True)
+    save_raw_config(raw)
+    return JSONResponse({"enabled": session["enabled"]})
 
 
 @app.get("/setup")

@@ -100,6 +100,18 @@
     }
     .badge-sm.orange { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
     .badge-sm.green  { background: color-mix(in srgb, var(--ok)   15%, transparent); color: var(--ok);   }
+    .session-toggle {
+      display: flex; align-items: center; gap: 0.35rem;
+      font-size: 0.65rem; font-weight: 700; cursor: pointer;
+      padding: 0.2rem 0.55rem; border-radius: 999px; border: none;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .session-toggle.on  { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+    .session-toggle.off { background: color-mix(in srgb, var(--t4) 18%, transparent); color: var(--t4); }
+    .session-toggle .toggle-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: currentColor; transition: all 0.2s;
+    }
     .kebab-btn {
       background: var(--bg3); border: 1px solid var(--border); color: var(--t3);
       width: 28px; height: 28px; border-radius: 0.5rem;
@@ -310,6 +322,40 @@
       box-shadow: 0 8px 24px color-mix(in srgb, var(--acc) 45%, transparent), 0 2px 6px rgba(0,0,0,0.3);
     }
     .fab:active { transform: scale(0.96); }
+    .fab.running { opacity: 0.7; pointer-events: none; }
+    /* 실행 결과 모달 */
+    .run-modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      z-index: 100; align-items: flex-end; justify-content: center;
+    }
+    .run-modal-overlay.open { display: flex; }
+    .run-modal {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 1.5rem 1.5rem 0 0; width: 100%; max-width: 480px;
+      max-height: 70vh; overflow-y: auto; padding: 1.5rem 1.25rem 2rem;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .run-modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; }
+    .run-modal-title { font-size: 1rem; font-weight: 700; color: var(--t1); }
+    .run-modal-close { background: var(--bg3); border: 1px solid var(--border); color: var(--t3);
+      width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+      display:flex; align-items:center; justify-content:center; font-size:0.9rem; }
+    .run-result-row {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 0.75rem;
+      padding: 0.75rem; margin-bottom: 0.5rem;
+    }
+    .run-result-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem; }
+    .run-result-sid { font-size: 0.8rem; font-weight: 700; color: var(--t1); }
+    .run-result-badge { font-size: 0.6rem; font-weight: 700; padding: 0.15rem 0.5rem;
+      border-radius: 999px; }
+    .run-result-badge.ok { background: color-mix(in srgb,var(--ok) 18%,transparent); color:var(--ok); }
+    .run-result-badge.skip { background: color-mix(in srgb,var(--warn) 15%,transparent); color:var(--warn); }
+    .run-result-badge.err { background: color-mix(in srgb,var(--err) 18%,transparent); color:var(--err); }
+    .run-result-orders { display:flex; flex-direction:column; gap:0.2rem; margin-top:0.35rem; }
+    .run-result-order { font-size:0.7rem; color:var(--t3); display:flex; gap:0.5rem; }
+    .run-result-order .side-buy  { color:var(--ok); font-weight:700; }
+    .run-result-order .side-sell { color:var(--err); font-weight:700; }
   /* ===== 분석 탭 서브탭 ===== */
   .analysis-sub-tabs { display:flex; gap:0.25rem; margin-bottom:1rem; overflow-x:auto; scrollbar-width:none; }
   .analysis-sub-tabs::-webkit-scrollbar { display:none; }
@@ -386,7 +432,15 @@
           {% endif %}
         </div>
       </div>
-      <button class="kebab-btn" onclick="toggleSettings('{{ row.session_id }}')">⋮</button>
+      <div style="display:flex;align-items:center;gap:0.4rem;">
+        <button id="toggle-{{ row.session_id }}"
+          class="session-toggle {{ 'on' if row.enabled else 'off' }}"
+          onclick="toggleSession('{{ row.session_id }}', this)">
+          <span class="toggle-dot"></span>
+          {{ '활성' if row.enabled else '비활성' }}
+        </button>
+        <button class="kebab-btn" onclick="toggleSettings('{{ row.session_id }}')">⋮</button>
+      </div>
     </div>
 
     <!-- 설정 패널 -->
@@ -925,6 +979,20 @@
           {% endfor %}
         </div>
 
+        <!-- 전체 보유금 추이 차트 -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.75rem;">
+            <span class="section-title">전체 보유금 추이</span>
+          </div>
+          {% if portfolio_history %}
+          <div style="position:relative;height:140px;">
+            <canvas id="portfolio-chart-{{ row.session_id }}-all"></canvas>
+          </div>
+          {% else %}
+          <div class="completed-placeholder">실행 후 데이터가 쌓이면 차트가 표시됩니다</div>
+          {% endif %}
+        </div>
+
         <!-- 완료 사이클 -->
         <div class="card" style="margin-bottom:0.625rem;">
           <div class="card-head" style="margin-bottom:0.5rem;">
@@ -1143,6 +1211,21 @@
         </div>
         {% endif %}
 
+        <!-- 세션별 보유금 추이 차트 -->
+        <div class="card" style="margin-bottom:0.625rem;">
+          <div class="card-head" style="margin-bottom:0.75rem;">
+            <span class="section-title">{{ r.label }} 보유금 추이</span>
+          </div>
+          {% set sess_hist = portfolio_history | selectattr('sessions.' ~ r.session_id, 'defined') | list %}
+          {% if sess_hist %}
+          <div style="position:relative;height:120px;">
+            <canvas id="portfolio-chart-{{ row.session_id }}-{{ r.session_id }}"></canvas>
+          </div>
+          {% else %}
+          <div class="completed-placeholder">실행 후 데이터가 쌓이면 차트가 표시됩니다</div>
+          {% endif %}
+        </div>
+
       </div><!-- /aview session {{ r.session_id }} -->
       {% endfor %}
 
@@ -1153,6 +1236,7 @@
     {% if fear_greed.history %}
     <script type="application/json" id="fgdata-{{ row.session_id }}">{{ fear_greed.history | tojson }}</script>
     {% endif %}
+    <script type="application/json" id="pfdata-{{ row.session_id }}">{{ portfolio_history | tojson }}</script>
 
   </div><!-- /session-panel -->
   {% endfor %}
@@ -1161,12 +1245,21 @@
 
 <!-- FAB -->
 <div class="fab-wrap">
-  <form method="post" action="/run">
-    <button type="submit" class="fab">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-14 9V3z"/></svg>
-      오늘 실행
-    </button>
-  </form>
+  <button class="fab" id="run-fab" onclick="runNow()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-14 9V3z"/></svg>
+    오늘 실행
+  </button>
+</div>
+
+<!-- 실행 결과 모달 -->
+<div class="run-modal-overlay" id="run-modal-overlay" onclick="closeRunModal(event)">
+  <div class="run-modal">
+    <div class="run-modal-head">
+      <div class="run-modal-title" id="run-modal-title">실행 결과</div>
+      <button class="run-modal-close" onclick="closeRunModal()">✕</button>
+    </div>
+    <div id="run-modal-body"></div>
+  </div>
 </div>
 
 <script>
@@ -1531,6 +1624,130 @@ function switchAnalysisSub(panelSid, subSid, btn) {
   panel.querySelectorAll('[id^="aview-' + panelSid + '-"]').forEach(el => el.style.display = 'none');
   const target = document.getElementById('aview-' + panelSid + '-' + subSid);
   if (target) target.style.display = 'block';
+}
+
+/* ===================== SESSION TOGGLE ===================== */
+async function toggleSession(sid, btn) {
+  try {
+    const res = await fetch('/session/' + sid + '/toggle', { method: 'POST' });
+    const data = await res.json();
+    btn.className = 'session-toggle ' + (data.enabled ? 'on' : 'off');
+    btn.innerHTML = '<span class="toggle-dot"></span>' + (data.enabled ? '활성' : '비활성');
+  } catch(e) { alert('토글 실패: ' + e); }
+}
+
+/* ===================== RUN NOW ===================== */
+async function runNow() {
+  const fab = document.getElementById('run-fab');
+  fab.classList.add('running');
+  fab.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/></svg> 실행 중…';
+  try {
+    const res = await fetch('/run', { method: 'POST' });
+    const data = await res.json();
+    showRunModal(data);
+    if (data.ok) setTimeout(() => location.reload(), 2000);
+  } catch(e) {
+    showRunModal({ ok: false, error: String(e) });
+  } finally {
+    fab.classList.remove('running');
+    fab.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-14 9V3z"/></svg> 오늘 실행';
+  }
+}
+
+function showRunModal(data) {
+  const overlay = document.getElementById('run-modal-overlay');
+  const title = document.getElementById('run-modal-title');
+  const body = document.getElementById('run-modal-body');
+  overlay.classList.add('open');
+  if (!data.ok) {
+    title.textContent = '실행 오류';
+    body.innerHTML = '<div class="run-result-row"><span style="color:var(--err);font-size:0.8rem;">' + (data.error || '알 수 없는 오류') + '</span></div>';
+    return;
+  }
+  title.textContent = '실행 완료 — ' + data.results.length + '개 세션';
+  body.innerHTML = data.results.map(r => {
+    const badgeCls = r.status === 'ok' ? 'ok' : 'skip';
+    const badgeText = r.status === 'ok' ? '성공' : ('건너뜀: ' + (r.reason || ''));
+    let ordersHtml = '';
+    if (r.orders && r.orders.length) {
+      ordersHtml = '<div class="run-result-orders">' +
+        r.orders.map(o => {
+          const sideCls = o.side === 'buy' ? 'side-buy' : 'side-sell';
+          const sideText = o.side === 'buy' ? '매수' : '매도';
+          const price = o.price ? '$' + Number(o.price).toFixed(2) : 'MOC';
+          return '<div class="run-result-order"><span class="' + sideCls + '">' + sideText + '</span><span>' + o.qty + '주</span><span>' + price + '</span><span style="color:var(--t4);">' + (o.note || '') + '</span></div>';
+        }).join('') + '</div>';
+    }
+    return '<div class="run-result-row"><div class="run-result-head"><span class="run-result-sid">' + r.session_id + (r.ticker ? ' · ' + r.ticker : '') + '</span><span class="run-result-badge ' + badgeCls + '">' + badgeText + '</span></div>' + ordersHtml + '</div>';
+  }).join('');
+}
+
+function closeRunModal(e) {
+  if (e && e.target !== document.getElementById('run-modal-overlay')) return;
+  document.getElementById('run-modal-overlay').classList.remove('open');
+}
+
+/* ===================== PORTFOLIO CHART ===================== */
+const portfolioCharts = {};
+
+function initPortfolioChart(panelSid, subSid) {
+  const chartId = 'portfolio-chart-' + panelSid + '-' + subSid;
+  const canvas = document.getElementById(chartId);
+  if (!canvas || portfolioCharts[chartId]) return;
+  const raw = document.getElementById('pfdata-' + panelSid);
+  if (!raw) return;
+  let history;
+  try { history = JSON.parse(raw.textContent); } catch(e) { return; }
+  if (!history || !history.length) return;
+
+  const labels = history.map(h => h.date);
+  let values;
+  if (subSid === 'all') {
+    values = history.map(h => h.total);
+  } else {
+    values = history.map(h => (h.sessions && h.sessions[subSid] != null) ? h.sessions[subSid] : null);
+  }
+
+  const style = getComputedStyle(document.documentElement);
+  const acc = style.getPropertyValue('--acc-s').trim() || '#7c6af7';
+  const ok  = style.getPropertyValue('--ok').trim()  || '#34c97e';
+  const color = subSid === 'all' ? acc : ok;
+
+  portfolioCharts[chartId] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: color,
+        backgroundColor: color + '22',
+        borderWidth: 2,
+        pointRadius: values.length <= 10 ? 3 : 0,
+        tension: 0.3,
+        fill: true,
+        spanGaps: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => '$' + Number(ctx.raw).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) }
+      }},
+      scales: {
+        x: { ticks: { font: { size: 10 }, color: style.getPropertyValue('--t4').trim(), maxTicksLimit: 6 }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, color: style.getPropertyValue('--t4').trim(),
+          callback: v => '$' + Number(v).toLocaleString('en', {maximumFractionDigits:0}) }, grid: { color: style.getPropertyValue('--border').trim() } }
+      }
+    }
+  });
+}
+
+// switchAnalysisSub 에 포트폴리오 차트 초기화 연결
+const _origSwitchAnalysisSub = switchAnalysisSub;
+// Override to also init portfolio chart
+function switchAnalysisSub(panelSid, subSid, btn) {
+  _origSwitchAnalysisSub(panelSid, subSid, btn);
+  setTimeout(() => initPortfolioChart(panelSid, subSid), 50);
 }
 
 /* ===================== INIT ===================== */
