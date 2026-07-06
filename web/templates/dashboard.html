@@ -1283,6 +1283,10 @@
       <button class="run-modal-close" onclick="closeRunModal()">✕</button>
     </div>
     <div id="run-modal-body"></div>
+    <div style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button onclick="if(_lastRunData)showRunModal(_lastRunData)" style="font-size:0.72rem;padding:0.3rem 0.7rem;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--t3);cursor:pointer;">다시 보기</button>
+      <button onclick="location.reload()" style="font-size:0.72rem;padding:0.3rem 0.7rem;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--t3);cursor:pointer;">새로고침</button>
+    </div>
   </div>
 </div>
 
@@ -1661,6 +1665,8 @@ async function toggleSession(sid, btn) {
 }
 
 /* ===================== RUN NOW ===================== */
+let _lastRunData = null;
+
 async function runNow() {
   const fab = document.getElementById('run-fab');
   fab.classList.add('running');
@@ -1668,8 +1674,8 @@ async function runNow() {
   try {
     const res = await fetch('/run', { method: 'POST' });
     const data = await res.json();
+    _lastRunData = data;
     showRunModal(data);
-    if (data.ok) setTimeout(() => location.reload(), 2000);
   } catch(e) {
     showRunModal({ ok: false, error: String(e) });
   } finally {
@@ -1703,7 +1709,7 @@ function showRunModal(data) {
           const sideText = o.side === 'buy' ? '매수' : '매도';
           const price = o.price ? '$' + Number(o.price).toFixed(2) : 'MOC';
           const statusMark = o.accepted === false ? ' <span style="color:var(--err)">✗</span>' : ' <span style="color:var(--ok)">✓</span>';
-          const failMsg = (!o.accepted && o.msg) ? ' <span style="color:var(--err);font-size:0.62rem;">' + o.msg.slice(0,40) + '</span>' : '';
+          const failMsg = (!o.accepted && o.msg) ? ' <span style="color:var(--err);font-size:0.62rem;">' + o.msg.slice(0,80) + '</span>' : '';
           return '<div class="run-result-order"><span class="' + sideCls + '">' + sideText + '</span><span>' + o.qty + '주</span><span>' + price + '</span><span style="color:var(--t4);">' + (o.note||'') + '</span>' + statusMark + failMsg + '</div>';
         }).join('') + '</div>';
     }
