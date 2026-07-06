@@ -62,7 +62,8 @@ def place_order(
         json=body,
         timeout=10,
     )
-    resp.raise_for_status()
+    if not resp.is_success:
+        return {"error": True, "status_code": resp.status_code, "body": resp.text[:200]}
     return resp.json()
 
 
