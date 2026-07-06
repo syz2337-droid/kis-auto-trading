@@ -295,6 +295,13 @@ def debug_market():
     return JSONResponse([{"session_id": r["session_id"], "market": r["market"]} for r in rows])
 
 
+@app.get("/debug-run")
+def debug_run():
+    if not _run_log:
+        return JSONResponse({"msg": "실행 기록 없음"})
+    return JSONResponse(_run_log[-1])
+
+
 @app.get("/")
 def dashboard(request: Request):
     rows = _session_rows()
