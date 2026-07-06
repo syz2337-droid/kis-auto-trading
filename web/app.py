@@ -61,7 +61,14 @@ def _record_results(results: list[dict], trigger: str) -> None:
             continue
         session_id = r["session_id"]
         orders = r.get("orders", [])
-        _latest_orders[session_id] = orders
+        submitted = r.get("submitted", [])
+        # 제출 성공 여부 확인: submitted result에 error가 없으면 접수됨
+        def _order_accepted(i: int) -> bool:
+            if i >= len(submitted): return False
+            res = submitted[i].get("result", {})
+            return not res.get("error") and res.get("rt_cd") == "0"
+        orders_with_status = [{**o, "filled": False, "accepted": _order_accepted(i)} for i, o in enumerate(orders)]
+        _latest_orders[session_id] = orders_with_status
         _history.setdefault(session_id, []).insert(
             0,
             {
@@ -71,7 +78,7 @@ def _record_results(results: list[dict], trigger: str) -> None:
                 "avg_price": r.get("avg_price"),
                 "qty": r.get("qty"),
                 "cash": r.get("cash"),
-                "orders": [{**o, "filled": None} for o in orders],
+                "orders": orders_with_status,
             },
         )
         _history[session_id] = _history[session_id][:90]
@@ -165,6 +172,8 @@ def _render_order(o: dict) -> dict:
         "tag": tag,
         "price": f"${price:,.2f}" if price else "MOC",
         "qty": o["qty"],
+        "filled": o.get("filled"),       # True/False/None
+        "accepted": o.get("accepted"),   # 접수 성공 여부
     }
 
 

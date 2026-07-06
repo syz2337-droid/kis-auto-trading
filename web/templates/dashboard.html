@@ -780,8 +780,20 @@
         </div>
         <div class="order-group-head sell-head"><span class="order-dot sell-dot"></span>매도</div>
         {% for ord in row.sell_orders %}
-        <div class="order-row sell">
-          <div><span class="order-label">{{ ord.label }}</span><span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span></div>
+        <div class="order-row sell {% if ord.filled == false %}order-unfilled{% endif %}">
+          <div>
+            <span class="order-label">{{ ord.label }}</span>
+            <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
+            {% if ord.filled == true %}
+              <span class="fill-badge filled">✓ 체결</span>
+            {% elif ord.filled == false %}
+              <span class="fill-badge pending">○ 미체결</span>
+            {% elif ord.accepted == false %}
+              <span class="fill-badge unknown">! 접수실패</span>
+            {% else %}
+              <span class="fill-badge unknown">미확인</span>
+            {% endif %}
+          </div>
           <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
         </div>
         {% else %}
@@ -789,8 +801,20 @@
         {% endfor %}
         <div class="order-group-head buy-head orders-gap"><span class="order-dot buy-dot"></span>매수</div>
         {% for ord in row.buy_orders %}
-        <div class="order-row buy">
-          <div><span class="order-label">{{ ord.label }}</span><span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span></div>
+        <div class="order-row buy {% if ord.filled == false %}order-unfilled{% endif %}">
+          <div>
+            <span class="order-label">{{ ord.label }}</span>
+            <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
+            {% if ord.filled == true %}
+              <span class="fill-badge filled">✓ 체결</span>
+            {% elif ord.filled == false %}
+              <span class="fill-badge pending">○ 미체결</span>
+            {% elif ord.accepted == false %}
+              <span class="fill-badge unknown">! 접수실패</span>
+            {% else %}
+              <span class="fill-badge unknown">미확인</span>
+            {% endif %}
+          </div>
           <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
         </div>
         {% else %}
