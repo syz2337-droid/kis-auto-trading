@@ -188,9 +188,13 @@ def _render_order(o: dict) -> dict:
         "label": o.get("note") or tag,
         "tag": tag,
         "price": f"${price:,.2f}" if price else "MOC",
+        "raw_price": price or 0,
         "qty": o["qty"],
-        "filled": o.get("filled"),       # True/False/None
-        "accepted": o.get("accepted"),   # 접수 성공 여부
+        "ord_dvsn": o.get("ord_dvsn", "34"),
+        "side": o.get("side", "buy"),
+        "note": o.get("note", ""),
+        "filled": o.get("filled"),
+        "accepted": o.get("accepted"),
     }
 
 
@@ -255,7 +259,12 @@ def _session_rows() -> list[dict]:
                             "label": o.note or _ORD_DVSN_TAG.get(o.ord_dvsn, "LOC"),
                             "tag": _ORD_DVSN_TAG.get(o.ord_dvsn, "LOC"),
                             "price": f"${o.price:,.2f}" if o.price else "MOC",
-                            "qty": o.qty, "filled": None, "accepted": None, "is_preview": True,
+                            "raw_price": o.price or 0,
+                            "qty": o.qty,
+                            "ord_dvsn": o.ord_dvsn,
+                            "side": o.side,
+                            "note": o.note or "",
+                            "filled": None, "accepted": None, "is_preview": True,
                         }
                         (preview_sell if o.side == "sell" else preview_buy).append(rendered)
             except Exception:
@@ -392,6 +401,44 @@ def run_now():
         return JSONResponse({"ok": True, "results": summary})
     except Exception as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/session/{session_id}/place-order")
+async def place_single_order(session_id: str, request: Request):
+    from kis_api import order as kis_order
+    body = await request.json()
+    side     = body["side"]
+    qty      = int(body["qty"])
+    price    = float(body.get("price") or 0)
+    ord_dvsn = body.get("ord_dvsn", "00")
+    note     = body.get("note", "")
+
+    raw = load_raw_config()
+    params = raw.get("sessions", {}).get(session_id)
+    if not params:
+        return JSONResponse({"ok": False, "error": "세션 없음"}, status_code=404)
+    cfg = _session_config(params)
+
+    result = kis_order.place_order(
+        symbol=cfg.ticker, exchange=cfg.exchange,
+        side=side, qty=qty, price=price, ord_dvsn=ord_dvsn,
+    )
+    accepted = result.get("rt_cd") == "0"
+    msg = result.get("msg1", "") if not accepted else ""
+
+    entry = {"side": side, "qty": qty, "price": price, "ord_dvsn": ord_dvsn,
+             "note": note, "filled": False, "accepted": accepted}
+    orders = _latest_orders.setdefault(session_id, [])
+    # 같은 side+price 기존 항목 업데이트, 없으면 추가
+    for o in orders:
+        if o.get("side") == side and abs((o.get("price") or 0) - price) < 0.01:
+            o.update(entry)
+            break
+    else:
+        orders.append(entry)
+
+    return JSONResponse({"ok": True, "accepted": accepted, "msg": msg,
+                         "result": result})
 
 
 @app.post("/session/{session_id}/toggle")

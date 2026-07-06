@@ -281,6 +281,17 @@
     .fill-badge.unknown { color:var(--warn); border:1px dashed var(--warn); }
     .order-row.order-unfilled { opacity:0.42; }
     .order-row.order-unfilled:hover { opacity:0.75; transition:opacity 0.15s; }
+    .order-input { font-family:var(--mono); font-size:0.82rem; font-weight:600; width:72px;
+      background:var(--bg4); border:1px solid var(--border); border-radius:5px;
+      padding:0.15rem 0.35rem; color:inherit; text-align:right; }
+    .order-input:focus { outline:none; border-color:var(--acc-s); }
+    .order-qty-input { width:40px; }
+    .order-place-btn { font-size:0.68rem; font-weight:700; padding:0.25rem 0.55rem;
+      border-radius:6px; border:1px solid var(--border); background:var(--bg4);
+      color:var(--t2); cursor:pointer; transition:all 0.15s; white-space:nowrap; }
+    .order-place-btn:hover { background:var(--acc-s); color:#fff; border-color:var(--acc-s); }
+    .order-place-btn.placed-ok  { background:color-mix(in srgb,var(--ok) 15%,transparent); color:var(--ok); border-color:var(--ok); cursor:default; }
+    .order-place-btn.placed-err { background:color-mix(in srgb,var(--err) 15%,transparent); color:var(--err); border-color:var(--err); cursor:default; }
 
     /* ===================== 분석 탭 ===================== */
     .chart-section { background: var(--bg2); border: 1px solid var(--border); border-radius: 1.25rem; padding: 1rem; margin-bottom: 0.625rem; }
@@ -806,15 +817,27 @@
           <div>
             <span class="order-label">{{ ord.label }}</span>
             <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
-            {% if has_actual %}
-              {% if ord.accepted == false %}
-                <span class="fill-badge unknown">✗ 접수실패</span>
-              {% else %}
-                <span class="fill-badge filled">✓ 예약완료</span>
-              {% endif %}
+            {% if has_actual and ord.accepted == false %}
+              <span class="fill-badge unknown">✗ 접수실패</span>
             {% endif %}
           </div>
-          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+          {% if has_actual %}
+            <div>
+              <span class="order-price">{{ ord.price }}</span>
+              <span class="order-qty">{{ ord.qty }}주</span>
+              <span class="fill-badge filled" style="margin-left:0.3rem;">✓ 예약완료</span>
+            </div>
+          {% else %}
+            <div style="display:flex;align-items:center;gap:0.35rem;">
+              <span style="color:var(--err);font-size:0.7rem;">$</span>
+              <input class="order-input" type="number" value="{{ ord.raw_price }}" step="0.01" min="0"
+                     data-ord-price="{{ ord.raw_price }}" data-ord-dvsn="{{ ord.ord_dvsn }}">
+              <input class="order-input order-qty-input" type="number" value="{{ ord.qty }}" step="1" min="1">
+              <span style="color:var(--t4);font-size:0.7rem;">주</span>
+              <button class="order-place-btn"
+                onclick="placeOrder(this,'{{ row.session_id }}','sell','{{ ord.ord_dvsn }}','{{ ord.note }}')">예약</button>
+            </div>
+          {% endif %}
         </div>
         {% else %}
         <div class="empty-note">매도 없음{% if not has_actual and row.qty == 0 %} — 최초 매수 전{% endif %}</div>
@@ -826,15 +849,27 @@
           <div>
             <span class="order-label">{{ ord.label }}</span>
             <span class="order-tag {{ ord.tag }}">{{ ord.tag }}</span>
-            {% if has_actual %}
-              {% if ord.accepted == false %}
-                <span class="fill-badge unknown">✗ 접수실패</span>
-              {% else %}
-                <span class="fill-badge filled">✓ 예약완료</span>
-              {% endif %}
+            {% if has_actual and ord.accepted == false %}
+              <span class="fill-badge unknown">✗ 접수실패</span>
             {% endif %}
           </div>
-          <div><span class="order-price">{{ ord.price }}</span><span class="order-qty">{{ ord.qty }}주</span></div>
+          {% if has_actual %}
+            <div>
+              <span class="order-price">{{ ord.price }}</span>
+              <span class="order-qty">{{ ord.qty }}주</span>
+              <span class="fill-badge filled" style="margin-left:0.3rem;">✓ 예약완료</span>
+            </div>
+          {% else %}
+            <div style="display:flex;align-items:center;gap:0.35rem;">
+              <span style="color:var(--ok);font-size:0.7rem;">$</span>
+              <input class="order-input" type="number" value="{{ ord.raw_price }}" step="0.01" min="0"
+                     data-ord-price="{{ ord.raw_price }}" data-ord-dvsn="{{ ord.ord_dvsn }}">
+              <input class="order-input order-qty-input" type="number" value="{{ ord.qty }}" step="1" min="1">
+              <span style="color:var(--t4);font-size:0.7rem;">주</span>
+              <button class="order-place-btn"
+                onclick="placeOrder(this,'{{ row.session_id }}','buy','{{ ord.ord_dvsn }}','{{ ord.note }}')">예약</button>
+            </div>
+          {% endif %}
         </div>
         {% else %}
         <div class="empty-note">매수 없음</div>
@@ -1672,6 +1707,47 @@ function switchAnalysisSub(panelSid, subSid, btn) {
   const target = document.getElementById('aview-' + panelSid + '-' + subSid);
   if (target) target.style.display = 'block';
   setTimeout(() => initPortfolioChart(panelSid, subSid), 50);
+}
+
+/* ===================== INDIVIDUAL ORDER PLACEMENT ===================== */
+async function placeOrder(btn, sessionId, side, ordDvsn, note) {
+  const row = btn.closest('.order-row');
+  const priceInput = row.querySelector('.order-input:not(.order-qty-input)');
+  const qtyInput   = row.querySelector('.order-qty-input');
+  const price = parseFloat(priceInput.value);
+  const qty   = parseInt(qtyInput.value);
+  if (!qty || qty < 1) { alert('수량을 입력하세요'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '...';
+  priceInput.disabled = true;
+  qtyInput.disabled   = true;
+
+  try {
+    const res  = await fetch('/session/' + sessionId + '/place-order', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({side, qty, price, ord_dvsn: ordDvsn, note}),
+    });
+    const data = await res.json();
+    if (data.accepted) {
+      btn.textContent = '✓ 완료';
+      btn.className   = 'order-place-btn placed-ok';
+    } else {
+      btn.textContent = '✗ 실패';
+      btn.className   = 'order-place-btn placed-err';
+      btn.title = data.msg || '접수 실패';
+      btn.disabled = false;
+      priceInput.disabled = false;
+      qtyInput.disabled   = false;
+    }
+  } catch(e) {
+    btn.textContent = '오류';
+    btn.className   = 'order-place-btn placed-err';
+    btn.disabled = false;
+    priceInput.disabled = false;
+    qtyInput.disabled   = false;
+  }
 }
 
 /* ===================== SESSION TOGGLE ===================== */
