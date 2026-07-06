@@ -126,6 +126,7 @@ def run_daily(session_id: str, raw_cfg: dict) -> dict:
     state.last_run_date = today
     save_state(session_id, state)
 
+    current_price = quote.get("price") or quote.get("prev_close") or 0
     return {
         "session_id": session_id,
         "ticker": config.ticker,
@@ -135,6 +136,7 @@ def run_daily(session_id: str, raw_cfg: dict) -> dict:
         "avg_price": state.avg_price,
         "qty": state.qty,
         "cash": state.cash,
+        "current_price": current_price,
         "orders": [asdict(o) for o in orders],
         "submitted": submitted,
     }

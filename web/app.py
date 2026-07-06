@@ -75,10 +75,10 @@ def _record_results(results: list[dict], trigger: str) -> None:
             },
         )
         _history[session_id] = _history[session_id][:90]
-        avg = r.get("avg_price") or 0
+        price = r.get("current_price") or r.get("avg_price") or 0
         qty = r.get("qty") or 0
         cash = r.get("cash") or 0
-        session_values[session_id] = round(cash + avg * qty, 2)
+        session_values[session_id] = round(cash + price * qty, 2)
     if session_values:
         _portfolio_history.append({
             "date": date_label,
