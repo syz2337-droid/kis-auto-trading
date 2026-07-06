@@ -24,11 +24,12 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from dataclasses import asdict
 from state.store import load_state, save_state
 from strategies.base import TickerState
 from strategies.infinite_buying import one_time_buy_amount, star_pct as calc_star_pct, star_point as calc_star_point
 from web.market_data import get_exchange_rate, get_fear_greed, get_ticker_data
-from web.runner import load_raw_config, next_session_id, run_all, save_raw_config
+from web.runner import load_raw_config, next_session_id, run_all, save_raw_config, _session_config, STRATEGIES
 
 TICKER_PRESETS = {
     "TQQQ": {"target_profit_pct": 15, "exchange": "NASD"},
@@ -82,6 +83,22 @@ def _record_results(results: list[dict], trigger: str) -> None:
             },
         )
         _history[session_id] = _history[session_id][:90]
+
+        # 전일 체결 결과로 직전 히스토리 항목 filled 상태 업데이트
+        prev_fills = r.get("prev_fills")
+        if prev_fills is not None and len(_history[session_id]) > 1:
+            prev_entry = _history[session_id][1]
+            buy_filled = sum(int(f.get("ft_ccld_qty") or 0) for f in prev_fills if f.get("sll_buy_dvsn_cd") == "02")
+            sell_filled = sum(int(f.get("ft_ccld_qty") or 0) for f in prev_fills if f.get("sll_buy_dvsn_cd") == "01")
+            buy_rem, sell_rem = buy_filled, sell_filled
+            for o in prev_entry.get("orders", []):
+                if o["side"] == "buy":
+                    o["filled"] = buy_rem >= o.get("qty", 0)
+                    buy_rem = max(0, buy_rem - o.get("qty", 0))
+                else:
+                    o["filled"] = sell_rem >= o.get("qty", 0)
+                    sell_rem = max(0, sell_rem - o.get("qty", 0))
+
         price = r.get("current_price") or r.get("avg_price") or 0
         qty = r.get("qty") or 0
         cash = r.get("cash") or 0
@@ -221,6 +238,29 @@ def _session_rows() -> list[dict]:
         unrealized_pnl_pct = round(unrealized_pnl / invested * 100, 1) if unrealized_pnl is not None and invested > 0 else None
         portfolio_value = round(state.cash + (current_price * state.qty if current_price and state.qty else 0), 2)
 
+        # 오늘 실행 전이면 예상 주문 미리계산
+        preview_sell: list[dict] = []
+        preview_buy: list[dict] = []
+        today_str = datetime.now(KST).strftime("%Y-%m-%d")
+        if state.last_run_date != today_str and not _latest_orders.get(session_id):
+            try:
+                cfg = _session_config(params)
+                strat = STRATEGIES.get(params.get("strategy", "infinite_buying"))
+                if strat and current_price:
+                    pq = {"symbol": ticker, "last": current_price, "prev_close": current_price, "raw": {}}
+                    for o in strat.compute_orders(state, pq, cfg):
+                        d = asdict(o)
+                        d["is_preview"] = True
+                        rendered = {
+                            "label": o.note or _ORD_DVSN_TAG.get(o.ord_dvsn, "LOC"),
+                            "tag": _ORD_DVSN_TAG.get(o.ord_dvsn, "LOC"),
+                            "price": f"${o.price:,.2f}" if o.price else "MOC",
+                            "qty": o.qty, "filled": None, "accepted": None, "is_preview": True,
+                        }
+                        (preview_sell if o.side == "sell" else preview_buy).append(rendered)
+            except Exception:
+                pass
+
         rows.append(
             {
                 "session_id": session_id,
@@ -247,6 +287,8 @@ def _session_rows() -> list[dict]:
                 "is_mock": os.getenv("IS_MOCK", "true"),
                 "sell_orders": [_render_order(o) for o in orders if o["side"] == "sell"],
                 "buy_orders": [_render_order(o) for o in orders if o["side"] == "buy"],
+                "preview_sell": preview_sell,
+                "preview_buy": preview_buy,
                 "history": _history.get(session_id, []),
                 # 신규 필드
                 "star_pct_val": sp_pct,

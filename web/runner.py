@@ -92,16 +92,23 @@ def run_daily(session_id: str, raw_cfg: dict) -> dict:
 
     quote = kis_quote.get_quote(config.ticker, exchange=config.exchange)
 
+    prev_fills: list | None = None
     if state.last_run_date is not None:
         # 첫 실행이 아니면, 전일 체결 결과를 broker 잔고 기준으로 반영한다.
         fill_summary = _reconcile_fill_summary(
             config.ticker, config.exchange, config.division, state.T, state.cash, quote["prev_close"]
         )
-        # NOTE: full_buy/half_buy/quarter_sell 판정 로직은 실제 체결 데이터로
-        # 보강이 필요하다. 현재는 broker 잔고 변화만 반영하고 T는 그대로 둔다.
         state.avg_price = fill_summary["avg_price"] or state.avg_price
         state.qty = fill_summary["qty"]
         state.recent_closes = (state.recent_closes + [quote["prev_close"]])[-5:]
+        # 전일 체결내역 조회 (히스토리 filled 업데이트용)
+        try:
+            from datetime import datetime as _dt
+            prev_date = _dt.strptime(state.last_run_date, "%Y-%m-%d").date()
+            exec_resp = kis_order.get_executions(start=prev_date, end=prev_date, exchange=config.exchange)
+            prev_fills = exec_resp.get("output1") or []
+        except Exception:
+            prev_fills = None
 
     if state.qty == 0 and state.cash == 0:
         state.cash = config.principal  # 최초 실행: 원금 전액을 잔금으로 시작
@@ -128,7 +135,7 @@ def run_daily(session_id: str, raw_cfg: dict) -> dict:
     state.last_run_date = today
     save_state(session_id, state)
 
-    current_price = quote.get("price") or quote.get("prev_close") or 0
+    current_price = quote.get("last") or quote.get("prev_close") or 0
     return {
         "session_id": session_id,
         "ticker": config.ticker,
@@ -141,6 +148,7 @@ def run_daily(session_id: str, raw_cfg: dict) -> dict:
         "current_price": current_price,
         "orders": [asdict(o) for o in orders],
         "submitted": submitted,
+        "prev_fills": prev_fills,
     }
 
 
